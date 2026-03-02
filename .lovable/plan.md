@@ -1,82 +1,69 @@
 
+# Plan: Seamless Single-Flow Customer Signup
 
-# Plan: Test Full Signup Flow + Region-Aware Email Domains
+## Problem
+The current signup experience is fragmented and feels "buggy":
+1. User signs up at `/auth` -- sees "account created, check your email"
+2. User confirms email, comes BACK to `/auth`, logs in
+3. Gets redirected to `/shop/register` which shows a separate "Welcome" banner + registration form
+4. On the shop page (`/shop`), the `EligibilityGate` shows a "Complete Registration" button that links back to `/shop/register` -- this looks like a broken loop
 
-## Task 1: Fix and Test Full Signup Flow
+The user has to navigate through 3 different pages and click "Complete Registration" to even start the medical form. It should feel like one continuous onboarding journey.
 
-The signup flow (Auth.tsx -> ShopRegister.tsx -> ClientOnboarding.tsx) is architecturally sound. The flow is:
-1. User signs up at `/auth` (email + password + full name)
-2. Non-blocking onboarding email sent via `send-onboarding-email`
-3. User confirms email, logs in, navigates to `/shop/register`
-4. `ClientOnboarding` 5-step form: Personal -> Address -> Business -> Medical History -> Medical Info -> Complete
-5. On final submit, calls `drgreen-proxy` with `create-client-legacy` action
-6. Stores result in `drgreen_clients` table, sends welcome + KYC emails
+## Solution: Merge Signup + Registration Into One Seamless Flow
 
-**No code-level errors found in the signup flow.** The architecture is correct -- existing client detection, API payload building, error handling, and fallback logic are all properly implemented.
+### Change 1: Auto-redirect after login to registration inline
+**File: `src/pages/Auth.tsx`** (lines 86-109)
 
-To verify the flow works end-to-end, I will use browser automation to walk through the signup as a new user after implementing the email changes.
+After a new user logs in (no `drGreenClient`), instead of redirecting to `/shop/register` which loads a whole new page with its own header/banner, redirect directly and immediately. The redirect is already working, but the target page (`ShopRegister`) feels disconnected.
 
-## Task 2: Update All Email Edge Functions to Use Region-Aware From Domains
+**Action**: No change needed here -- the redirect logic is correct.
 
-Currently, all 5 email edge functions hardcode the `from` address to `noreply@send.healingbuds.co.za` regardless of region. Each function already receives a `region` parameter and has domain config -- we just need to wire the `from` address to use the correct regional send domain.
+### Change 2: Remove the "Sign In to Continue" dead-end from ShopRegister
+**File: `src/pages/ShopRegister.tsx`** (lines 179-196)
 
-### Regional Domain Mapping
-| Region | From Domain |
-|--------|-------------|
-| ZA | `send.healingbuds.co.za` |
-| PT | `send.healingbuds.pt` |
-| GB | `send.healingbuds.co.uk` |
-| global (fallback) | `send.healingbuds.co.za` |
+The unauthenticated state shows a static card with "Sign In to Continue" and a button. This is fine but the Loader2 icon (spinning) in the card is confusing -- it looks like something is loading when nothing is happening. Replace with a proper icon (e.g., a lock or user icon).
 
-### Also: Standardize PT support email to English
-Per the memory note, all support emails should use English (e.g., `support@healingbuds.pt` not `suporte@healingbuds.pt`). Two functions (`send-client-email` and `send-dispatch-email`) still use `suporte@healingbuds.pt`.
+### Change 3: Streamline the ShopRegister welcome banner
+**File: `src/pages/ShopRegister.tsx`** (lines 164-178)
 
-### Files to Change
+The welcome banner adds vertical space before the form and separates the experience. Merge this messaging into the ClientOnboarding component's first step header so users see the form immediately without scrolling.
 
-**1. `supabase/functions/send-order-confirmation/index.ts`** (line 193)
-- Change: `from: \`\${config.brandName} <noreply@send.healingbuds.co.za>\``
-- To: Use region-aware domain from a helper function
-- Also fix PT support email from `suporte` to `support`
+**Action**: Remove the separate welcome banner div. Instead, add welcome text as a subtitle in the ClientOnboarding personal details card header.
 
-**2. `supabase/functions/send-onboarding-email/index.ts`** (line ~130)
-- Currently hardcoded: `from: "Healing Buds <noreply@send.healingbuds.co.za>"`
-- This function doesn't receive a `region` parameter -- needs adding
-- Frontend call in `Auth.tsx` (line 237-243) doesn't pass region -- will need to pass it or default to ZA
+### Change 4: Make the EligibilityGate less alarming for new users
+**File: `src/components/shop/EligibilityGate.tsx`**
 
-**3. `supabase/functions/send-client-email/index.ts`** (line 338)
-- Change: `const fromAddress = \`\${domainConfig.brandName} <noreply@send.healingbuds.co.za>\``
-- To: Use `send.${domainConfig.domain}` pattern
-- Fix PT `suporte` -> `support`
+Currently shows "No Medical Profile Found" with a scary shield icon and 4-step progress tracker before showing a "Start Registration" button. For brand-new users this is overwhelming and feels like an error.
 
-**4. `supabase/functions/send-dispatch-email/index.ts`** (line 214)
-- Change: `from: \`\${config.brandName} <noreply@send.healingbuds.co.za>\``
-- To: Use region-aware domain
-- Fix PT `suporte` -> `support`
+**Action**: Simplify the no-client state to a friendly, minimal prompt -- a single card with welcoming language and one clear CTA button. Remove the multi-step tracker from the EligibilityGate (it's already shown inside the registration form and on the status page).
 
-**5. `supabase/functions/send-contact-email/index.ts`** (line ~130)
-- Currently hardcoded: `from: "Healing Buds <noreply@send.healingbuds.co.za>"`
-- No region parameter -- contact form is global, so will default to `.co.za`
+### Change 5: Pre-fill email from auth session in ClientOnboarding
+**File: `src/components/shop/ClientOnboarding.tsx`** (lines 369-379)
 
-### Implementation Pattern
+Currently the email field starts empty, forcing the user to re-type their email (which they just used to sign up). Pre-fill it from the authenticated user's email.
 
-Each function that has `DOMAIN_CONFIG` will get a `sendDomain` field added:
+**Action**: On mount, fetch `supabase.auth.getUser()` and set the email + name defaults from the user metadata. Also make the email field read-only since it must match the auth email.
 
-```text
-ZA: { ..., sendDomain: 'send.healingbuds.co.za' }
-PT: { ..., sendDomain: 'send.healingbuds.pt', supportEmail: 'support@healingbuds.pt' }
-GB: { ..., sendDomain: 'send.healingbuds.co.uk' }
-global: { ..., sendDomain: 'send.healingbuds.co.za' }
-```
+### Change 6: Simplify the ClientOnboarding progress bar for mobile
+**File: `src/components/shop/ClientOnboarding.tsx`** (lines 937-977)
 
-Then the `from` address becomes: `` `${config.brandName} <noreply@${config.sendDomain}>` ``
+The 6-step progress indicator with icons and labels is cluttered on mobile (labels hidden). Simplify to show step X of Y with a clean progress bar.
 
-For `send-onboarding-email` (no DOMAIN_CONFIG), a simple mapping function will be added based on a `region` parameter.
+**Action**: Show "Step X of Y" text above the progress bar. Keep the progress bar. Remove the individual step icons on mobile (they're already hidden via `hidden sm:block`).
 
-### Frontend Change
+## Technical Summary
 
-**`src/pages/Auth.tsx`** (line 237-243): Pass region to onboarding email. Since we don't know the user's region at signup time, we'll default to `'ZA'` (matching the platform's ZA fallback).
+| File | Change |
+|------|--------|
+| `src/pages/ShopRegister.tsx` | Remove separate welcome banner, fix unauthenticated state icon, tighten layout |
+| `src/components/shop/EligibilityGate.tsx` | Simplify no-client state to friendly single CTA card |
+| `src/components/shop/ClientOnboarding.tsx` | Pre-fill email/name from auth session, add welcome subtitle to step 1, add "Step X of Y" label |
 
-### Deployment
-
-All 5 edge functions will be redeployed after changes.
-
+## What This Does NOT Change
+- The actual signup/login at `/auth` stays the same
+- The medical questionnaire steps and validation stay the same
+- The Dr. Green API integration stays the same
+- The completion step with "What happens next" stays the same
+- The DashboardStatus page stays the same
+- KYC is still not blocking -- it just sends the email after registration
