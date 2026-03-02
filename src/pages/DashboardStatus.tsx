@@ -162,24 +162,10 @@ export default function DashboardStatus() {
     }
   }, [isLoading, drGreenClient, isAuthenticated, isLookingUp, autoLookupDone, handleManualLookup]);
 
-  // Auto-redirect unregistered users to registration after 15 seconds (gives lookup time)
-  const [redirectCountdown, setRedirectCountdown] = useState<number | null>(null);
-  
+  // If user has no client record, redirect immediately to registration
   useEffect(() => {
-    // Only start countdown after auto-lookup has completed and still no client
     if (!isLoading && !drGreenClient && isAuthenticated && autoLookupDone && !isLookingUp) {
-      setRedirectCountdown(15);
-      const interval = setInterval(() => {
-        setRedirectCountdown(prev => {
-          if (prev === null || prev <= 1) {
-            clearInterval(interval);
-            navigate('/shop/register', { replace: true });
-            return null;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-      return () => clearInterval(interval);
+      navigate('/shop/register', { replace: true });
     }
   }, [drGreenClient, isLoading, isAuthenticated, autoLookupDone, isLookingUp, navigate]);
 
@@ -314,29 +300,21 @@ export default function DashboardStatus() {
                 </CardHeader>
 
                 <CardContent className="pt-6">
-                  {/* No Profile Found - Auto Redirect Notice */}
-                  {!hasClient && redirectCountdown !== null && (
+                  {/* No Profile Found - Direct link to registration */}
+                  {!hasClient && (
                     <Alert className="mb-6 border-amber-500/50 bg-amber-500/10">
                       <AlertTriangle className="h-4 w-4 text-amber-600" />
                       <AlertTitle className="text-amber-700 dark:text-amber-400">No Medical Profile Found</AlertTitle>
                       <AlertDescription className="text-amber-600 dark:text-amber-300">
-                        We couldn't find a registered profile for your email address.
-                        Redirecting to registration in {redirectCountdown} seconds...
+                        We couldn't find a registered profile for your email. Please complete registration to continue.
                       </AlertDescription>
-                      <div className="mt-3 flex gap-2">
+                      <div className="mt-3">
                         <Button 
                           asChild 
                           size="sm" 
                           className="bg-amber-600 hover:bg-amber-500"
                         >
-                          <Link to="/shop/register">Register Now</Link>
-                        </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => setRedirectCountdown(null)}
-                        >
-                          Cancel Redirect
+                          <Link to="/shop/register">Complete Registration</Link>
                         </Button>
                       </div>
                     </Alert>

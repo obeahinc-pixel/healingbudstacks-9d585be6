@@ -81,20 +81,32 @@ const Auth = () => {
   }, []);
 
   // Role-based redirect after login (skip if setting new password)
+  const { drGreenClient } = useShop();
+  
   useEffect(() => {
     if (isSettingNewPassword) return;
     if (user && !roleLoading && !clientLoading) {
+      // Check for ?redirect= param first
+      const params = new URLSearchParams(window.location.search);
+      const redirectPath = params.get('redirect');
+      
       if (isAdmin) {
-        navigate("/admin", { replace: true });
+        navigate(redirectPath || "/admin", { replace: true });
         return;
       }
       if (isEligible) {
-        navigate("/dashboard", { replace: true });
+        navigate(redirectPath || "/shop", { replace: true });
         return;
       }
-      navigate("/dashboard/status", { replace: true });
+      // User has a client record but not yet verified → show status
+      if (drGreenClient) {
+        navigate(redirectPath || "/dashboard/status", { replace: true });
+        return;
+      }
+      // Brand new user with no client record → go to registration
+      navigate(redirectPath || "/shop/register", { replace: true });
     }
-  }, [user, isAdmin, roleLoading, isEligible, clientLoading, navigate, isSettingNewPassword]);
+  }, [user, isAdmin, roleLoading, isEligible, clientLoading, drGreenClient, navigate, isSettingNewPassword]);
 
   const handleSetNewPassword = async (e: React.FormEvent) => {
     e.preventDefault();

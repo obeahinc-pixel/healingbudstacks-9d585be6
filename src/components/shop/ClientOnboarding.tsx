@@ -2271,70 +2271,102 @@ export function ClientOnboarding() {
             animate={{ opacity: 1, scale: 1 }}
           >
             <Card className="bg-card/50 backdrop-blur-sm border-border/50 text-center">
-              <CardContent className="pt-8 pb-8">
+              <CardContent className="pt-8 pb-8 space-y-6">
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
                   transition={{ type: 'spring', delay: 0.2 }}
-                  className="h-20 w-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-6"
+                  className="h-20 w-20 rounded-full bg-primary/20 flex items-center justify-center mx-auto"
                 >
                   <CheckCircle2 className="h-10 w-10 text-primary" />
                 </motion.div>
-                <h2 className="text-2xl font-bold mb-2">Registration Submitted!</h2>
+                <div>
+                  <h2 className="text-2xl font-bold mb-2">You're All Set!</h2>
+                  <p className="text-muted-foreground text-sm">
+                    Your medical profile has been submitted successfully.
+                  </p>
+                </div>
                 
+                {/* What happens next - always show */}
+                <div className="rounded-xl bg-muted/50 border border-border/50 p-5 text-left space-y-3">
+                  <h3 className="font-semibold text-foreground text-sm">What happens next?</h3>
+                  <ol className="space-y-2.5 text-sm text-muted-foreground">
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 h-6 w-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center mt-0.5">1</span>
+                      <span><strong className="text-foreground">Check your email</strong> — we've sent a verification link to complete identity checks (KYC).</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 h-6 w-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center mt-0.5">2</span>
+                      <span><strong className="text-foreground">Complete KYC</strong> — follow the link to verify your identity. This takes about 2 minutes.</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 h-6 w-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center mt-0.5">3</span>
+                      <span><strong className="text-foreground">Medical review</strong> — our team reviews your application (1–2 business days).</span>
+                    </li>
+                    <li className="flex items-start gap-3">
+                      <span className="flex-shrink-0 h-6 w-6 rounded-full bg-primary/15 text-primary text-xs font-bold flex items-center justify-center mt-0.5">4</span>
+                      <span><strong className="text-foreground">Start shopping</strong> — once approved, you'll have full access to the dispensary.</span>
+                    </li>
+                  </ol>
+                </div>
+
                 {kycLinkReceived ? (
-                  // Success state - KYC link received
-                  <div className="space-y-4">
-                    <div className="flex items-center justify-center gap-2 text-primary">
-                      <Mail className="h-5 w-5" />
-                      <p className="text-muted-foreground">
-                        Your verification link has been sent. Check your email to continue.
-                      </p>
-                    </div>
-                  <Button onClick={() => navigate('/dashboard/status')}>
-                      View Account Status
-                    </Button>
+                  <div className="flex items-center justify-center gap-2 p-3 rounded-lg bg-primary/10 border border-primary/20">
+                    <Mail className="h-5 w-5 text-primary flex-shrink-0" />
+                    <p className="text-sm text-foreground font-medium">
+                      Verification email sent — check your inbox now
+                    </p>
                   </div>
                 ) : (
-                  // Pending state - KYC link not received yet
-                  <div className="space-y-4">
-                    <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg text-left">
-                      <div className="flex items-center gap-2 mb-2">
-                        <Clock className="h-5 w-5 text-amber-600" />
-                        <span className="font-medium text-amber-700 dark:text-amber-400">
-                          Verification link pending
-                        </span>
+                  <div className="space-y-3">
+                    <div className="p-3 rounded-lg bg-amber-500/10 border border-amber-500/20">
+                      <div className="flex items-center gap-2">
+                        <Clock className="h-4 w-4 text-amber-600 flex-shrink-0" />
+                        <p className="text-sm text-amber-700 dark:text-amber-400 font-medium">
+                          Preparing your verification link...
+                        </p>
                       </div>
-                      <p className="text-sm text-muted-foreground mb-4">
-                        Your registration was saved successfully. We're preparing your verification link.
+                      <p className="text-xs text-muted-foreground mt-1 ml-6">
+                        Check your email within the next few minutes. If you don't receive it:
                       </p>
-                      <Button
-                        variant="outline"
-                        onClick={retryKycLink}
-                        disabled={isRetrying}
-                        className="w-full"
-                      >
-                        {isRetrying ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            Requesting...
-                          </>
-                        ) : (
-                          <>
-                            <RefreshCw className="mr-2 h-4 w-4" />
-                            Request Verification Link
-                          </>
-                        )}
-                      </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Or check your email in the next 24 hours. If you don't receive it, please contact support.
-                    </p>
-                    <Button onClick={() => navigate('/dashboard/status')}>
-                      View Account Status
+                    <Button
+                      variant="outline"
+                      onClick={retryKycLink}
+                      disabled={isRetrying}
+                      size="sm"
+                      className="w-full"
+                    >
+                      {isRetrying ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Requesting...
+                        </>
+                      ) : (
+                        <>
+                          <RefreshCw className="mr-2 h-4 w-4" />
+                          Resend Verification Email
+                        </>
+                      )}
                     </Button>
                   </div>
                 )}
+
+                <div className="flex gap-3 pt-2">
+                  <Button 
+                    variant="outline" 
+                    className="flex-1"
+                    onClick={() => navigate('/shop')}
+                  >
+                    Browse Products
+                  </Button>
+                  <Button 
+                    className="flex-1"
+                    onClick={() => navigate('/dashboard/status')}
+                  >
+                    View Account Status
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           </motion.div>

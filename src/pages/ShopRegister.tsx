@@ -72,45 +72,49 @@ export default function ShopRegister() {
     return (
       <>
         <SEOHead
-          title="Registration Status | Dr. Green Medical Cannabis"
+          title="Registration Status | Healing Buds"
           description="View your patient registration status."
         />
         <div className="min-h-screen bg-background">
           <Header />
           <main className="pt-20 pb-12">
             <div className="max-w-lg mx-auto px-4 py-12">
-              <Card>
-                <CardHeader className="text-center">
+              <Card className="rounded-2xl shadow-lg border-border/50">
+                <CardHeader className="text-center pb-4">
                   {isVerified ? (
-                    <CheckCircle2 className="h-12 w-12 text-green-500 mx-auto mb-4" />
+                    <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-4">
+                      <CheckCircle2 className="h-8 w-8 text-primary" />
+                    </div>
                   ) : (
-                    <Clock className="h-12 w-12 text-amber-500 mx-auto mb-4" />
+                    <div className="h-16 w-16 rounded-full bg-amber-500/10 flex items-center justify-center mx-auto mb-4">
+                      <Clock className="h-8 w-8 text-amber-500" />
+                    </div>
                   )}
-                  <CardTitle>
-                    {isVerified ? "You're Verified!" : 'Registration Pending'}
+                  <CardTitle className="text-xl">
+                    {isVerified ? "You're Verified!" : 'Verification In Progress'}
                   </CardTitle>
-                  <CardDescription>
+                  <CardDescription className="text-sm mt-1">
                     {isVerified
                       ? 'Your account is fully verified. You can now browse and purchase products.'
-                      : "Your registration is being reviewed. We'll notify you once approved."}
+                      : "We're reviewing your application. You'll receive an email once approved."}
                   </CardDescription>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                <CardContent className="space-y-3 pt-0">
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
                     <span className="text-sm text-muted-foreground">KYC Status</span>
                     <Badge variant={existingClient.is_kyc_verified ? 'default' : 'secondary'}>
                       {existingClient.is_kyc_verified ? 'Verified' : 'Pending'}
                     </Badge>
                   </div>
-                  <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
-                    <span className="text-sm text-muted-foreground">Admin Approval</span>
+                  <div className="flex items-center justify-between p-3 bg-muted/50 rounded-xl">
+                    <span className="text-sm text-muted-foreground">Medical Review</span>
                     <Badge variant={existingClient.admin_approval === 'VERIFIED' ? 'default' : 'secondary'}>
-                      {existingClient.admin_approval}
+                      {existingClient.admin_approval === 'VERIFIED' ? 'Approved' : existingClient.admin_approval === 'PENDING' ? 'Under Review' : existingClient.admin_approval}
                     </Badge>
                   </div>
 
-                  {isPending && existingClient.kyc_link && (
-                    <Button asChild className="w-full" variant="outline">
+                  {isPending && existingClient.kyc_link && !existingClient.is_kyc_verified && (
+                    <Button asChild className="w-full" size="lg">
                       <a href={existingClient.kyc_link} target="_blank" rel="noopener noreferrer">
                         Complete KYC Verification
                         <ExternalLink className="ml-2 h-4 w-4" />
@@ -120,13 +124,18 @@ export default function ShopRegister() {
 
                   <div className="flex gap-3 pt-2">
                     {isVerified ? (
-                      <Button asChild className="flex-1">
+                      <Button asChild className="flex-1" size="lg">
                         <Link to="/shop">Browse Products</Link>
                       </Button>
                     ) : (
-                      <Button asChild variant="outline" className="flex-1">
-                        <Link to="/patient-dashboard">View Dashboard</Link>
-                      </Button>
+                      <>
+                        <Button asChild variant="outline" className="flex-1">
+                          <Link to="/shop">Browse Products</Link>
+                        </Button>
+                        <Button asChild className="flex-1">
+                          <Link to="/dashboard/status">View Status</Link>
+                        </Button>
+                      </>
                     )}
                   </div>
                 </CardContent>
@@ -142,7 +151,7 @@ export default function ShopRegister() {
   return (
     <>
       <SEOHead
-        title="Patient Registration | Dr. Green Medical Cannabis"
+        title="Patient Registration | Healing Buds"
         description="Register as a medical cannabis patient. Complete our secure verification process to access pharmaceutical-grade cannabis products."
         keywords="medical cannabis registration, patient verification, KYC, medical marijuana"
       />
@@ -152,18 +161,37 @@ export default function ShopRegister() {
 
         <main className="pt-20 pb-12">
           {isAuthenticated ? (
-            <ClientOnboarding />
+            <>
+              {/* Welcome banner for new registrants */}
+              <div className="max-w-2xl mx-auto px-4 mb-6">
+                <div className="rounded-2xl bg-primary/5 border border-primary/15 p-6 text-center">
+                  <h1 className="text-2xl font-bold text-foreground mb-2">
+                    Welcome to Healing Buds
+                  </h1>
+                  <p className="text-muted-foreground text-sm max-w-lg mx-auto">
+                    Complete the form below to set up your medical profile. This takes about 3–5 minutes. 
+                    Once submitted, you'll receive a verification email to confirm your identity.
+                  </p>
+                </div>
+              </div>
+              <ClientOnboarding />
+            </>
           ) : (
             <div className="max-w-md mx-auto text-center py-20 px-4">
-              <h1 className="text-2xl font-bold mb-4">Sign In Required</h1>
-              <p className="text-muted-foreground mb-6">
-                Please sign in or create an account to register as a medical cannabis patient.
-              </p>
-              <Button asChild>
-                <Link to="/auth?redirect=/shop/register">
-                  Sign In / Create Account
-                </Link>
-              </Button>
+              <div className="rounded-2xl bg-card border border-border/50 p-8 shadow-lg">
+                <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5">
+                  <Loader2 className="h-8 w-8 text-primary" />
+                </div>
+                <h1 className="text-2xl font-bold mb-3 text-foreground">Sign In to Continue</h1>
+                <p className="text-muted-foreground mb-6 text-sm">
+                  Create a free account or sign in to begin your patient registration.
+                </p>
+                <Button asChild size="lg" className="w-full">
+                  <Link to="/auth?redirect=/shop/register">
+                    Sign In / Create Account
+                  </Link>
+                </Button>
+              </div>
             </div>
           )}
         </main>
