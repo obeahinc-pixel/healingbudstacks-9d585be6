@@ -343,11 +343,19 @@ export function ClientOnboarding() {
   const { refreshClient } = useShop();
   const { logEvent } = useKycJourneyLog();
 
-  // Check for existing registration on mount
+  // Check for existing registration and pre-fill from auth session
   useEffect(() => {
-    const checkExistingRegistration = async () => {
+    const initForm = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+
+      // Pre-fill email and name from auth session
+      const email = user.email || '';
+      const fullName = user.user_metadata?.full_name || '';
+      const [first, ...rest] = fullName.split(' ');
+      personalForm.setValue('email', email);
+      if (first) personalForm.setValue('firstName', first);
+      if (rest.length) personalForm.setValue('lastName', rest.join(' '));
 
       const { data: existingClient } = await supabase
         .from('drgreen_clients')
@@ -356,13 +364,12 @@ export function ClientOnboarding() {
         .maybeSingle();
 
       if (existingClient) {
-        // User already registered - redirect to dashboard
         navigate('/patient-dashboard');
         return;
       }
     };
 
-    checkExistingRegistration();
+    initForm();
     logEvent('registration.started', 'pending', { step: 0, stepName: 'personal' });
   }, [navigate, logEvent]);
 
@@ -938,7 +945,10 @@ export function ClientOnboarding() {
     <div className="max-w-2xl mx-auto py-8 px-4">
       {/* Progress indicator */}
       <div className="mb-8">
-        <div className="flex justify-between">
+        <p className="text-sm text-muted-foreground text-center mb-3">
+          Step {currentStep + 1} of {steps.length} — {steps[currentStep].title}
+        </p>
+        <div className="hidden sm:flex justify-between mb-2">
           {steps.map((step, index) => (
             <div
               key={step.id}
@@ -961,7 +971,7 @@ export function ClientOnboarding() {
                   <step.icon className="h-5 w-5" />
                 )}
               </div>
-              <span className="text-xs hidden sm:block">{step.title}</span>
+              <span className="text-xs">{step.title}</span>
             </div>
           ))}
         </div>
@@ -991,6 +1001,7 @@ export function ClientOnboarding() {
                   <User className="h-5 w-5" />
                   Personal Details
                 </CardTitle>
+                <p className="text-sm text-muted-foreground">Welcome to Healing Buds. Let's set up your medical profile — it only takes a few minutes.</p>
               </CardHeader>
               <CardContent>
                 <Form {...personalForm}>
@@ -1036,9 +1047,12 @@ export function ClientOnboarding() {
                             <Input
                               type="email"
                               placeholder="john@example.com"
+                              readOnly
+                              className="bg-muted/50"
                               {...field}
                             />
                           </FormControl>
+                          <FormDescription className="text-xs">Pre-filled from your account</FormDescription>
                           <FormMessage />
                         </FormItem>
                       )}
