@@ -11,6 +11,16 @@ interface OnboardingEmailRequest {
   email: string;
   firstName?: string;
   fullName?: string;
+  region?: string;
+}
+
+function getSendDomain(region?: string): string {
+  const map: Record<string, string> = {
+    ZA: 'send.healingbuds.co.za',
+    PT: 'send.healingbuds.pt',
+    GB: 'send.healingbuds.co.uk',
+  };
+  return map[region?.toUpperCase() || ''] || 'send.healingbuds.co.za';
 }
 
 const handler = async (req: Request): Promise<Response> => {
@@ -22,7 +32,7 @@ const handler = async (req: Request): Promise<Response> => {
   }
 
   try {
-    const { email, firstName, fullName }: OnboardingEmailRequest = await req.json();
+    const { email, firstName, fullName, region }: OnboardingEmailRequest = await req.json();
 
     if (!email) {
       console.error("[send-onboarding-email] Missing email");
@@ -153,7 +163,7 @@ const handler = async (req: Request): Promise<Response> => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: "Healing Buds <noreply@send.healingbuds.co.za>",
+        from: `Healing Buds <noreply@${getSendDomain(region)}>`,
         to: [email],
         subject: "Welcome to Healing Buds - Complete Your Registration",
         html: emailHtml,

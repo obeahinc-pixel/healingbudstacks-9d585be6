@@ -11,6 +11,7 @@ const DOMAIN_CONFIG: Record<string, {
   domain: string;
   brandName: string;
   supportEmail: string;
+  sendDomain: string;
   address: string;
   phone: string;
   websiteUrl: string;
@@ -19,6 +20,7 @@ const DOMAIN_CONFIG: Record<string, {
     domain: 'healingbuds.co.za',
     brandName: 'Healing Buds South Africa',
     supportEmail: 'support@healingbuds.co.za',
+    sendDomain: 'send.healingbuds.co.za',
     address: '123 Sandton Drive, Sandton 2196, South Africa',
     phone: '+27 11 123 4567',
     websiteUrl: 'https://healingbuds.co.za',
@@ -26,7 +28,8 @@ const DOMAIN_CONFIG: Record<string, {
   'PT': {
     domain: 'healingbuds.pt',
     brandName: 'Healing Buds Portugal',
-    supportEmail: 'suporte@healingbuds.pt',
+    supportEmail: 'support@healingbuds.pt',
+    sendDomain: 'send.healingbuds.pt',
     address: 'Avenida D. João II, 98 A, 1990-100 Lisboa, Portugal',
     phone: '+351 210 123 456',
     websiteUrl: 'https://healingbuds.pt',
@@ -35,6 +38,7 @@ const DOMAIN_CONFIG: Record<string, {
     domain: 'healingbuds.co.uk',
     brandName: 'Healing Buds UK',
     supportEmail: 'support@healingbuds.co.uk',
+    sendDomain: 'send.healingbuds.co.uk',
     address: '123 Harley Street, London W1G 6AX, United Kingdom',
     phone: '+44 20 7123 4567',
     websiteUrl: 'https://healingbuds.co.uk',
@@ -43,6 +47,7 @@ const DOMAIN_CONFIG: Record<string, {
     domain: 'healingbuds.global',
     brandName: 'Healing Buds',
     supportEmail: 'support@healingbuds.global',
+    sendDomain: 'send.healingbuds.co.za',
     address: 'Global Medical Cannabis Network',
     phone: '+27 11 123 4567',
     websiteUrl: 'https://healingbuds.global',
@@ -335,7 +340,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     // Determine from address - use verified domain or fallback
     // Note: Until domains are verified on Resend, we use onboarding@resend.dev
-    const fromAddress = `${domainConfig.brandName} <noreply@send.healingbuds.co.za>`;
+    const fromAddress = `${domainConfig.brandName} <noreply@${domainConfig.sendDomain}>`;
 
     console.log('[send-client-email] Sending email:', {
       from: fromAddress,
