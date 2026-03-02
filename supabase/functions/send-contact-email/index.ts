@@ -190,7 +190,7 @@ const handler = async (req: Request): Promise<Response> => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: "Healing Buds <noreply@send.healingbuds.co.za>",
+        from: "Healing Buds <noreply@send.healingbuds.co.za>",  // Contact form is global, always use .co.za
         to: [email.trim()],
         subject: "Thank you for contacting Healing Buds",
         html: emailHtml,

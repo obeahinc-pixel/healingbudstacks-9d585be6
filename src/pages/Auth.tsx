@@ -238,6 +238,7 @@ const Auth = () => {
         body: {
           email: email.trim(),
           fullName: fullName.trim(),
+          region: 'ZA',
         },
       });
       console.log('Onboarding email triggered successfully');

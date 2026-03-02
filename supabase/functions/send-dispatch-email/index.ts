@@ -37,11 +37,11 @@ interface DispatchEmailRequest {
   clientId?: string;
 }
 
-const DOMAIN_CONFIG: Record<string, { brandName: string; supportEmail: string }> = {
-  ZA: { brandName: "Healing Buds South Africa", supportEmail: "support@healingbuds.co.za" },
-  PT: { brandName: "Healing Buds Portugal", supportEmail: "suporte@healingbuds.pt" },
-  GB: { brandName: "Healing Buds UK", supportEmail: "support@healingbuds.co.uk" },
-  global: { brandName: "Healing Buds", supportEmail: "support@healingbuds.global" },
+const DOMAIN_CONFIG: Record<string, { brandName: string; supportEmail: string; sendDomain: string }> = {
+  ZA: { brandName: "Healing Buds South Africa", supportEmail: "support@healingbuds.co.za", sendDomain: "send.healingbuds.co.za" },
+  PT: { brandName: "Healing Buds Portugal", supportEmail: "support@healingbuds.pt", sendDomain: "send.healingbuds.pt" },
+  GB: { brandName: "Healing Buds UK", supportEmail: "support@healingbuds.co.uk", sendDomain: "send.healingbuds.co.uk" },
+  global: { brandName: "Healing Buds", supportEmail: "support@healingbuds.global", sendDomain: "send.healingbuds.co.za" },
 };
 
 function getDomainConfig(region?: string) {
@@ -211,7 +211,7 @@ const handler = async (req: Request): Promise<Response> => {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        from: `${config.brandName} <noreply@send.healingbuds.co.za>`,
+        from: `${config.brandName} <noreply@${config.sendDomain}>`,
         to: [request.email.trim()],
         subject,
         html,
