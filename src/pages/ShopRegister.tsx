@@ -5,7 +5,7 @@ import Footer from '@/components/Footer';
 import SEOHead from '@/components/SEOHead';
 import { ClientOnboarding } from '@/components/shop/ClientOnboarding';
 import { supabase } from '@/integrations/supabase/client';
-import { Loader2, CheckCircle2, Clock, ExternalLink } from 'lucide-react';
+import { User, CheckCircle2, Clock, ExternalLink } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -59,7 +59,7 @@ export default function ShopRegister() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
@@ -161,26 +161,12 @@ export default function ShopRegister() {
 
         <main className="pt-20 pb-12">
           {isAuthenticated ? (
-            <>
-              {/* Welcome banner for new registrants */}
-              <div className="max-w-2xl mx-auto px-4 mb-6">
-                <div className="rounded-2xl bg-primary/5 border border-primary/15 p-6 text-center">
-                  <h1 className="text-2xl font-bold text-foreground mb-2">
-                    Welcome to Healing Buds
-                  </h1>
-                  <p className="text-muted-foreground text-sm max-w-lg mx-auto">
-                    Complete the form below to set up your medical profile. This takes about 3–5 minutes. 
-                    Once submitted, you'll receive a verification email to confirm your identity.
-                  </p>
-                </div>
-              </div>
-              <ClientOnboarding />
-            </>
+            <ClientOnboarding />
           ) : (
             <div className="max-w-md mx-auto text-center py-20 px-4">
               <div className="rounded-2xl bg-card border border-border/50 p-8 shadow-lg">
                 <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center mx-auto mb-5">
-                  <Loader2 className="h-8 w-8 text-primary" />
+                  <User className="h-8 w-8 text-primary" />
                 </div>
                 <h1 className="text-2xl font-bold mb-3 text-foreground">Sign In to Continue</h1>
                 <p className="text-muted-foreground mb-6 text-sm">
