@@ -310,7 +310,11 @@ serve(async (req) => {
         const orderId = order.id;
         const clientId = order.clientId || order.client?.id;
         const userId = clientToUser[clientId];
-        if (!userId) continue; // Can't insert without user_id
+        if (!userId) {
+          // Log but skip — no local auth user linked to this Dr. Green client yet
+          result.orders.errors.push(`Order ${orderId}: skipped — client ${clientId} has no local user_id`);
+          continue;
+        }
 
         const { data: existing } = await supabaseAdmin
           .from('drgreen_orders').select('id, status, payment_status')
