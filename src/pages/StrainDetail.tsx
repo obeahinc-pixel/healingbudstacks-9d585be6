@@ -265,7 +265,7 @@ export default function StrainDetail() {
                   </p>
                 </div>
 
-                {/* Price - converted from EUR to user's currency */}
+                {/* Price - fixed local price from API */}
                 <div className="flex items-baseline gap-3">
                   <PriceBreakdownTooltip>
                     <span className="text-4xl font-bold text-primary">

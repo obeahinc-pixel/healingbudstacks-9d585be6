@@ -183,7 +183,7 @@ export function StrainQuickView({ product, onClose }: StrainQuickViewProps) {
                   </Button>
                 </div>
 
-                {/* Price - converted from EUR to user's currency */}
+                {/* Price - fixed local price from API */}
                 <div className="flex items-baseline gap-2 mb-4">
                   <PriceBreakdownTooltip>
                     <span className="text-3xl font-bold text-primary">
