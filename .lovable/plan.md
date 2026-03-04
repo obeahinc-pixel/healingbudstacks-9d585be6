@@ -1,54 +1,71 @@
 
 
-# Plan: Handle External Dr. Green Clients Without Creating Fake Auth Accounts
+# Plan: Sync Now Button, Realtime Dashboard, Email Logo Branding
 
-## Why NOT Create Local Auth Accounts
+## Summary
 
-Creating auth accounts for `varseainc@gmail.com`, `maykendaal23@gmail.com`, `gerard161+budstacks@gmail.com` is **wrong** because:
-- These users never consented to account creation on your platform
-- They'd have passwords they don't know (security risk)
-- It violates the principle that auth accounts represent real user registrations
-- If they later sign up organically, there would be conflicts
+Three changes: (1) Add a "Sync Now" button on the admin dashboard that calls `sync-drgreen-data` edge function + realtime subscriptions for live updates, (2) verify admin/clients page shows all clients (already working via `AdminClientManager`), (3) fix email templates in `drgreen-webhook` to use the correct Healing Buds logos — white logo on dark/teal backgrounds, teal/green logo for light backgrounds.
 
-## The Correct Approach: Make `user_id` Nullable
+---
 
-The local `drgreen_clients` and `drgreen_orders` tables are a **cache** of the Dr. Green API (source of truth). External clients exist in the API regardless of whether they have a local auth account. The fix is simple:
+## 1. Admin Dashboard — "Sync Now" + Realtime
 
-1. **Make `user_id` nullable** on both `drgreen_clients` and `drgreen_orders` — this allows the sync function to store ALL data from the API without needing a local auth user
-2. **Auto-link on signup** — when someone signs up with a matching email, automatically link existing `drgreen_clients` / `drgreen_orders` rows to their new `user_id`
-3. **Update sync function** — remove the "skip if no user_id" guard so all 11 clients and all 4 orders get upserted
-4. **Update RLS policies** — adjust policies so admins see all rows (including `user_id IS NULL`), and patients only see their own linked rows (existing behavior, unaffected)
+**File: `src/pages/AdminDashboard.tsx`**
 
-## Steps
+- Replace the existing "Sync Client Data" button (line 376-384) with a "Sync Now" button that calls `supabase.functions.invoke('sync-drgreen-data')` instead of the client-side `useDrGreenClientSync` hook
+- Add loading state (`syncing`) and show results in a toast (clients synced, orders synced, errors)
+- Add a `useEffect` that subscribes to `postgres_changes` on `drgreen_clients` and `drgreen_orders` tables — on any change, auto-refetch stats and recent activity
+- Add a small pulsing green dot "Live" indicator next to the dashboard title
+- Clean up the realtime subscription on unmount
 
-### 1. Database migration
-- `ALTER TABLE drgreen_clients ALTER COLUMN user_id DROP NOT NULL`
-- `ALTER TABLE drgreen_orders ALTER COLUMN user_id DROP NOT NULL`
+**No backend changes needed** — `sync-drgreen-data` edge function and realtime publication already exist.
 
-### 2. Update `sync-drgreen-data` Edge Function
-- Remove the `if (!userId) continue` skip for orders
-- Insert all clients regardless of email match (set `user_id` to matched user or `NULL`)
-- Insert all orders with `user_id` from linked client or `NULL`
+---
 
-### 3. Add auto-link trigger
-- Create a database function + trigger on `auth.users` insert (via `profiles` trigger pattern) that updates `drgreen_clients SET user_id = NEW.id WHERE email = NEW.email AND user_id IS NULL`, and similarly for orders
+## 2. Admin Clients Verification
 
-### 4. Re-run sync
-- Trigger `sync-drgreen-data` to pull all 11 clients and 4 orders into local cache
+The `AdminClientManager` component already fetches all clients from the Dr. Green API (up to 100 per page) and displays them with KYC and approval status badges. The `/admin/clients` page (`AdminClients.tsx`) renders this component. No code changes needed — this is a verification step during testing.
 
-## Why Not "Always Call API Directly"
+---
 
-Calling the Dr. Green API on every page load is:
-- Slow (external API, signing overhead)
-- Rate-limited (external service)
-- Not compatible with RLS (patients querying their own data)
-- The local cache pattern is the correct architecture — fast reads from local DB, periodic sync from API source of truth
+## 3. Email Logo Branding Fix
 
-The hybrid approach (local cache + periodic sync + auto-link on signup) is the industry standard for this pattern.
+**File: `supabase/functions/drgreen-webhook/index.ts`**
 
-## Files Changed
+Currently, emails reference `hb-logo-white.png` from the `email-assets` storage bucket. The fix:
 
-- Database migration: make `user_id` nullable, add auto-link trigger
-- `supabase/functions/sync-drgreen-data/index.ts` — remove skip logic, insert all clients/orders
-- No frontend changes needed — admin queries already work, patient queries use `auth.uid() = user_id` which naturally excludes unlinked rows
+- **Order confirmation email** (line 765): The header has a teal `#0d9488` background — keep using the white logo (`hb-logo-white.png`). This is correct.
+- **Order status emails** (`getOrderStatusEmail` function, line 160-238): These use colored headers but have NO logo at all. Add the white logo `hb-logo-white.png` to the header section.
+- **All emails**: Ensure the logo is sourced from `{supabaseUrl}/storage/v1/object/public/email-assets/hb-logo-white.png` for dark/teal backgrounds and `{supabaseUrl}/storage/v1/object/public/email-assets/hb-logo-teal.png` for light/white backgrounds (e.g. body sections).
+- Upload the teal logo to the `email-assets` bucket if not already there (check first).
+
+**Branding rules applied:**
+- Dark/colored header → white logo (`hb-logo-white.png`)
+- Light/white background sections → teal/green logo (`hb-logo-teal.png`)
+- Footer section (light gray `#f4f4f5`) → teal logo
+
+---
+
+## 4. Webhook Test
+
+After deployment, test by calling:
+```
+POST /functions/v1/drgreen-webhook
+```
+with a sample `order.confirmed` payload to verify the email renders with correct logos. This is a manual verification step.
+
+---
+
+## Technical Details
+
+- Realtime subscription pattern:
+```typescript
+const channel = supabase
+  .channel('admin-dashboard')
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'drgreen_clients' }, () => refetch())
+  .on('postgres_changes', { event: '*', schema: 'public', table: 'drgreen_orders' }, () => refetch())
+  .subscribe();
+```
+- The `sync-drgreen-data` function returns `{ success, clients: { fetched, upserted }, orders: { fetched, upserted } }` — display these in the toast
+- Logo URLs use the public `email-assets` bucket, no auth needed
 
