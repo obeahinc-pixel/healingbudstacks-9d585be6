@@ -13,7 +13,7 @@ import PageLoadingSkeleton from "@/components/PageLoadingSkeleton";
 import ErrorBoundary from "@/components/ErrorBoundary";
 import SkipLinks from "@/components/SkipLinks";
 import ProtectedRoute from "@/components/ProtectedRoute";
-import { ProtectedNFTRoute } from "@/components/ProtectedNFTRoute";
+
 import { ComplianceGuard } from "@/components/ComplianceGuard";
 import { CheckoutErrorFallback } from "@/components/shop/CheckoutErrorFallback";
 import CookieConsentBanner from "@/components/CookieConsentBanner";
