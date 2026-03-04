@@ -15,7 +15,7 @@ secp256k1.etc.hmacSha256Sync = (key: Uint8Array, ...messages: Uint8Array[]) => {
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version',
 };
 
 // Log level configuration - defaults to INFO in production
@@ -83,6 +83,7 @@ function sanitizeForLogging(data: Record<string, unknown>): Record<string, unkno
 // Admin-only actions that require admin role
 const ADMIN_ACTIONS = [
   'dashboard-summary', 'dashboard-analytics', 'sales-summary',
+  'get-clients-summary', 'get-sales',
   'dapp-clients', 'dapp-client-details', 'dapp-verify-client',
   'dapp-orders', 'dapp-order-details', 'dapp-update-order',
   'dapp-carts', 'dapp-nfts', 'dapp-strains', 'dapp-clients-list',
