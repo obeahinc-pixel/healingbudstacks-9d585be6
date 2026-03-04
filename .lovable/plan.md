@@ -1,69 +1,66 @@
 
-# Plan: Seamless Single-Flow Customer Signup
 
-## Problem
-The current signup experience is fragmented and feels "buggy":
-1. User signs up at `/auth` -- sees "account created, check your email"
-2. User confirms email, comes BACK to `/auth`, logs in
-3. Gets redirected to `/shop/register` which shows a separate "Welcome" banner + registration form
-4. On the shop page (`/shop`), the `EligibilityGate` shows a "Complete Registration" button that links back to `/shop/register` -- this looks like a broken loop
+# Plan: Fix Pricing (Local/Fixed) + Fix Cart DELETE
 
-The user has to navigate through 3 different pages and click "Complete Registration" to even start the medical form. It should feel like one continuous onboarding journey.
+## Problem Summary
 
-## Solution: Merge Signup + Registration Into One Seamless Flow
+From the API response the user shared, orders have:
+- `totalAmount`: the actual total (quantity × unit price, e.g. 90 = 2 × 45)
+- `totalPrice`: the sum of unit prices (e.g. 45)
 
-### Change 1: Auto-redirect after login to registration inline
-**File: `src/pages/Auth.tsx`** (lines 86-109)
+The current pricing system assumes the API returns EUR prices and applies `convertFromEUR()` everywhere. But the API now returns **fixed local prices** — the price is already in the correct currency for the queried region. This causes price fluctuation as exchange rates change.
 
-After a new user logs in (no `drGreenClient`), instead of redirecting to `/shop/register` which loads a whole new page with its own header/banner, redirect directly and immediately. The redirect is already working, but the target page (`ShopRegister`) feels disconnected.
+Additionally, the `remove-from-cart` DELETE sends a JSON body, which the updated API doesn't expect.
 
-**Action**: No change needed here -- the redirect logic is correct.
+## Changes
 
-### Change 2: Remove the "Sign In to Continue" dead-end from ShopRegister
-**File: `src/pages/ShopRegister.tsx`** (lines 179-196)
+### 1. Flip price extraction priority — location price first
 
-The unauthenticated state shows a static card with "Sign In to Continue" and a button. This is fine but the Loader2 icon (spinning) in the card is confusing -- it looks like something is loading when nothing is happening. Replace with a proper icon (e.g., a lock or user icon).
+**`src/hooks/useProducts.ts`** (lines 182-187) and **`supabase/functions/sync-strains/index.ts`** (lines 230-235)
 
-### Change 3: Streamline the ShopRegister welcome banner
-**File: `src/pages/ShopRegister.tsx`** (lines 164-178)
+Current: `strain.retailPrice → strain.pricePerGram → strain.price → location.retailPrice`
+New: `location.retailPrice → location.pricePerGram → location.pricePerUnit → strain.retailPrice → strain.pricePerGram → strain.price → 0`
 
-The welcome banner adds vertical space before the form and separates the experience. Merge this messaging into the ClientOnboarding component's first step header so users see the form immediately without scrolling.
+The `strainLocations[0]` price is the fixed/local price for the queried country. It should take priority.
 
-**Action**: Remove the separate welcome banner div. Instead, add welcome text as a subtitle in the ClientOnboarding personal details card header.
+### 2. Remove `convertFromEUR()` from all price displays
 
-### Change 4: Make the EligibilityGate less alarming for new users
-**File: `src/components/shop/EligibilityGate.tsx`**
+The API returns local prices, so conversion is wrong. Change all calls from `convertFromEUR(product.retailPrice)` to just `product.retailPrice` in these 6 files:
 
-Currently shows "No Medical Profile Found" with a scary shield icon and 4-step progress tracker before showing a "Start Registration" button. For brand-new users this is overwhelming and feels like an error.
+| File | Lines (approx) |
+|------|------|
+| `src/components/FeaturedStrains.tsx` | line 117 |
+| `src/components/shop/ProductCard.tsx` | line 167 |
+| `src/components/shop/StrainQuickView.tsx` | lines 190, 303 |
+| `src/pages/StrainDetail.tsx` | lines 272, 332 |
+| `src/pages/Checkout.tsx` | lines 572, 576 |
+| `src/components/shop/Cart.tsx` | (any convertFromEUR calls) |
 
-**Action**: Simplify the no-client state to a friendly, minimal prompt -- a single card with welcoming language and one clear CTA button. Remove the multi-step tracker from the EligibilityGate (it's already shown inside the registration form and on the status page).
+Also update `ShopContext.tsx` line 137: `cartTotalConverted` should just equal `cartTotal` (no conversion needed since unit prices are already local).
 
-### Change 5: Pre-fill email from auth session in ClientOnboarding
-**File: `src/components/shop/ClientOnboarding.tsx`** (lines 369-379)
+### 3. Fix `remove-from-cart` DELETE — sign query string, no body
 
-Currently the email field starts empty, forcing the user to re-type their email (which they just used to sign up). Pre-fill it from the authenticated user's email.
+**`supabase/functions/drgreen-proxy/index.ts`** (lines 2128-2167)
 
-**Action**: On mount, fetch `supabase.auth.getUser()` and set the email + name defaults from the user metadata. Also make the email field read-only since it must match the auth email.
+Current: Signs `{ cartId }` as JSON body and sends it with DELETE.
+Fix: Sign the query string `strainId=xxx` instead. Remove `body` from the fetch call.
 
-### Change 6: Simplify the ClientOnboarding progress bar for mobile
-**File: `src/components/shop/ClientOnboarding.tsx`** (lines 937-977)
+### 4. Fix `empty-cart` DELETE — no body
 
-The 6-step progress indicator with icons and labels is cluttered on mobile (labels hidden). Simplify to show step X of Y with a clean progress bar.
+**`supabase/functions/drgreen-proxy/index.ts`** (lines 2707-2718)
 
-**Action**: Show "Step X of Y" text above the progress bar. Keep the progress bar. Remove the individual step icons on mobile (they're already hidden via `hidden sm:block`).
+Current: `drGreenRequest` signs a body.
+Fix: Use direct fetch with no body. Sign empty string for signature.
 
-## Technical Summary
+### 5. Update order sync mapping
 
-| File | Change |
-|------|--------|
-| `src/pages/ShopRegister.tsx` | Remove separate welcome banner, fix unauthenticated state icon, tighten layout |
-| `src/components/shop/EligibilityGate.tsx` | Simplify no-client state to friendly single CTA card |
-| `src/components/shop/ClientOnboarding.tsx` | Pre-fill email/name from auth session, add welcome subtitle to step 1, add "Step X of Y" label |
+**`src/hooks/useOrderTracking.ts`** (line 191)
 
-## What This Does NOT Change
-- The actual signup/login at `/auth` stays the same
-- The medical questionnaire steps and validation stay the same
-- The Dr. Green API integration stays the same
-- The completion step with "What happens next" stays the same
-- The DashboardStatus page stays the same
-- KYC is still not blocking -- it just sends the email after registration
+The API returns `totalAmount` as the real total — this mapping is correct. No change needed here, but add `totalPrice` (base price) as a fallback: `live.totalAmount || live.totalPrice || live.total_amount || 0`.
+
+## What stays the same
+- `formatPrice()` still handles currency symbol/formatting based on country code
+- The exchange rate infrastructure remains (may be useful for other features)
+- Order display logic stays the same — `total_amount` in the DB is correct
+- Dr. Green API URLs unchanged
+
