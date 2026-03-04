@@ -83,11 +83,25 @@ const AdminDashboard = () => {
   const { openWalletModal } = useWallet();
 
   useEffect(() => {
-    loadDashboard();
+    // Guard: wait for valid session before loading dashboard
+    const init = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        loadDashboard();
+      } else {
+        setLoading(false);
+      }
+    };
+    init();
   }, []);
 
   useEffect(() => {
-    if (!loading) fetchStats(true);
+    if (!loading) {
+      // Re-guard on environment change
+      supabase.auth.getSession().then(({ data: { session } }) => {
+        if (session?.user) fetchStats(true);
+      });
+    }
   }, [environment]);
 
   const loadDashboard = async () => {
