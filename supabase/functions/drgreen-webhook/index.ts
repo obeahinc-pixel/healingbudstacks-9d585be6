@@ -626,15 +626,15 @@ serve(async (req) => {
 
     // Handle order-related events
     if (payload.orderId) {
-      // Verify order exists
+      // Fetch order — supports both linked (user_id) and external (user_id IS NULL) orders
       const { data: orderData, error: orderError } = await supabase
         .from('drgreen_orders')
-        .select('user_id')
+        .select('user_id, customer_email, customer_name, items, total_amount, currency, shipping_address, country_code')
         .eq('drgreen_order_id', payload.orderId)
         .single();
 
-      if (orderError || !orderData?.user_id) {
-        logWarn('Order not found for webhook');
+      if (orderError || !orderData) {
+        logWarn('Order not found for webhook', { orderId: payload.orderId?.slice(0, 10) });
         return new Response(
           JSON.stringify({ error: "Order not found" }),
           { status: 404, headers: { ...corsHeaders, "Content-Type": "application/json" } }
@@ -642,27 +642,42 @@ serve(async (req) => {
       }
 
       let userEmail: string | null = null;
-      let region: string = 'global';
+      let userName: string = 'Patient';
+      let region: string = orderData.country_code || 'global';
 
-      const { data: userData } = await supabase.auth.admin.getUserById(orderData.user_id);
-      userEmail = userData?.user?.email || null;
+      // Resolve email: prefer auth user, fall back to customer_email on the order
+      if (orderData.user_id) {
+        const { data: userData } = await supabase.auth.admin.getUserById(orderData.user_id);
+        userEmail = userData?.user?.email || orderData.customer_email || null;
+        userName = userData?.user?.user_metadata?.full_name || orderData.customer_name || 'Patient';
 
-      // Get region from client data
-      const { data: clientData } = await supabase
-        .from('drgreen_clients')
-        .select('country_code')
-        .eq('user_id', orderData.user_id)
-        .single();
-      
-      region = clientData?.country_code || 'global';
+        const { data: clientData } = await supabase
+          .from('drgreen_clients')
+          .select('country_code')
+          .eq('user_id', orderData.user_id)
+          .single();
+        if (clientData?.country_code) region = clientData.country_code;
+      } else {
+        // External client — use stored order data
+        userEmail = orderData.customer_email || null;
+        userName = orderData.customer_name || 'Patient';
+      }
 
       const domainConfig = getDomainConfig(region);
 
       // Handle webhook events
       const updates: Record<string, string> = {};
       let shouldSendEmail = false;
+      let shouldSendConfirmation = false;
 
       switch (payload.event) {
+        case 'order.confirmed':
+        case 'order.verified': {
+          updates.status = 'CONFIRMED';
+          updates.payment_status = 'PAID';
+          shouldSendConfirmation = true;
+          break;
+        }
         case 'order.status_updated':
         case 'order.updated': {
           if (payload.status) updates.status = payload.status;
@@ -703,17 +718,127 @@ serve(async (req) => {
       if (Object.keys(updates).length > 0) {
         const { error } = await supabase
           .from('drgreen_orders')
-          .update(updates)
+          .update({ ...updates, updated_at: new Date().toISOString() })
           .eq('drgreen_order_id', payload.orderId);
 
         if (error) {
           logError('Error updating order');
         } else {
-          logInfo(`Order updated successfully`);
+          logInfo(`Order updated successfully`, { event: payload.event });
         }
       }
 
-      // Send email notification
+      // Send full order confirmation email (order.confirmed / order.verified)
+      if (shouldSendConfirmation && userEmail) {
+        const items = Array.isArray(orderData.items) ? orderData.items : [];
+        const shipping = (orderData.shipping_address as Record<string, string>) || {};
+        const confirmConfig = getDomainConfig(region);
+
+        const confirmBody = {
+          email: userEmail,
+          customerName: userName,
+          orderId: payload.orderId,
+          items: items.map((i: any) => ({
+            strain_name: i.strain_name || i.name || 'Product',
+            quantity: i.quantity || 1,
+            unit_price: i.unit_price || i.price || 0,
+          })),
+          totalAmount: orderData.total_amount || 0,
+          currency: orderData.currency || 'EUR',
+          shippingAddress: {
+            address1: shipping.address1 || '',
+            address2: shipping.address2 || '',
+            city: shipping.city || '',
+            state: shipping.state || '',
+            postalCode: shipping.postalCode || '',
+            country: shipping.country || '',
+          },
+          isLocalOrder: false,
+          region,
+        };
+
+        // Build and send the confirmation email inline (reuse Resend)
+        const RESEND_API_KEY = Deno.env.get("RESEND_API_KEY");
+        if (RESEND_API_KEY) {
+          const currencySymbol = confirmBody.currency === 'ZAR' ? 'R' : confirmBody.currency === 'GBP' ? '£' : '€';
+          const firstName = userName.split(' ')[0] || userName;
+          const logoUrl = `${supabaseUrl}/storage/v1/object/public/email-assets/hb-logo-white.png`;
+          const itemRows = confirmBody.items.map((item: any) => `
+            <tr>
+              <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;color:#18181b;font-size:14px;">${item.strain_name}</td>
+              <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;color:#18181b;font-size:14px;text-align:center;">${item.quantity}</td>
+              <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;color:#18181b;font-size:14px;text-align:right;">${currencySymbol}${(item.unit_price * item.quantity).toFixed(2)}</td>
+            </tr>`).join('');
+
+          const confirmHtml = `<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1.0"></head>
+<body style="margin:0;padding:20px;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background-color:#f4f4f5;">
+<div style="max-width:600px;margin:0 auto;background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 6px rgba(0,0,0,.1);">
+  <div style="background-color:#0d9488;padding:24px;text-align:center;">
+    <img src="${logoUrl}" alt="${confirmConfig.brandName}" width="180" style="max-width:180px;height:auto;"/>
+    <p style="color:#fff;margin:12px 0 0;font-size:14px;">Medical Cannabis Care</p>
+  </div>
+  <div style="padding:32px;">
+    <p style="color:#18181b;font-size:16px;line-height:1.6;">Dear ${firstName},</p>
+    <p style="color:#18181b;font-size:16px;line-height:1.6;">Your order has been verified and confirmed by our medical team. Here are your order details:</p>
+    <div style="background:#f0fdf4;border:1px solid #22c55e;border-radius:8px;padding:16px;margin:24px 0;text-align:center;">
+      <p style="margin:0;color:#16a34a;font-size:18px;font-weight:600;">✓ Order Verified &amp; Confirmed</p>
+    </div>
+    <p style="color:#71717a;font-size:13px;margin:0 0 4px;">Reference</p>
+    <p style="color:#18181b;font-size:18px;font-family:monospace;margin:0 0 24px;font-weight:600;">${payload.orderId}</p>
+    <table width="100%" cellspacing="0" cellpadding="0" style="margin:0 0 24px;">
+      <thead><tr style="border-bottom:2px solid #e5e7eb;">
+        <th style="text-align:left;padding:8px 0;color:#71717a;font-size:12px;text-transform:uppercase;">Product</th>
+        <th style="text-align:center;padding:8px 0;color:#71717a;font-size:12px;text-transform:uppercase;">Qty</th>
+        <th style="text-align:right;padding:8px 0;color:#71717a;font-size:12px;text-transform:uppercase;">Subtotal</th>
+      </tr></thead>
+      <tbody>
+        ${itemRows}
+        <tr>
+          <td colspan="2" style="padding:12px 0;font-weight:700;color:#18181b;font-size:16px;">Total</td>
+          <td style="padding:12px 0;font-weight:700;color:#0d9488;font-size:16px;text-align:right;">${currencySymbol}${confirmBody.totalAmount.toFixed(2)}</td>
+        </tr>
+      </tbody>
+    </table>
+    <div style="background:#f9fafb;border-radius:8px;padding:16px;margin:0 0 24px;">
+      <p style="margin:0 0 8px;color:#71717a;font-size:12px;text-transform:uppercase;">Shipping Address</p>
+      <p style="margin:0;color:#18181b;font-size:14px;line-height:1.6;">
+        ${confirmBody.shippingAddress.address1}${confirmBody.shippingAddress.address2 ? '<br>' + confirmBody.shippingAddress.address2 : ''}<br>
+        ${confirmBody.shippingAddress.city}${confirmBody.shippingAddress.state ? ', ' + confirmBody.shippingAddress.state : ''} ${confirmBody.shippingAddress.postalCode}<br>
+        ${confirmBody.shippingAddress.country}
+      </p>
+    </div>
+    <p style="color:#71717a;font-size:13px;line-height:1.6;">
+      If you have any questions, please contact us at <a href="mailto:support@${confirmConfig.domain}" style="color:#0d9488;">support@${confirmConfig.domain}</a>.
+    </p>
+  </div>
+  <div style="background:#f4f4f5;padding:20px;text-align:center;">
+    <p style="margin:0;color:#71717a;font-size:12px;">${confirmConfig.brandName}</p>
+    <p style="margin:8px 0 0;color:#a1a1aa;font-size:11px;">Transactional email regarding your order. © ${new Date().getFullYear()}</p>
+  </div>
+</div></body></html>`;
+
+          try {
+            const resp = await fetch('https://api.resend.com/emails', {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${RESEND_API_KEY}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                from: `${confirmConfig.brandName} <noreply@send.healingbuds.co.za>`,
+                to: [userEmail],
+                subject: `✅ Order Verified & Confirmed - ${payload.orderId} | ${confirmConfig.brandName}`,
+                html: confirmHtml,
+              }),
+            });
+            const respData = await resp.json();
+            emailSent = resp.ok;
+            if (emailSent) logInfo('Order confirmation email sent');
+            else logError('Resend error for confirmation email');
+          } catch (e) {
+            logError('Failed to send confirmation email');
+          }
+        }
+      }
+
+      // Send status update email (shipped, delivered, cancelled, payment events)
       if (shouldSendEmail && userEmail) {
         const emailContent = getOrderStatusEmail(
           payload.orderId,

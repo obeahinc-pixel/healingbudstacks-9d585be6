@@ -65,3 +65,6 @@ verify_jwt = false
 
 [functions.upload-jar-template]
 verify_jwt = false
+
+[functions.sync-drgreen-data]
+verify_jwt = false
