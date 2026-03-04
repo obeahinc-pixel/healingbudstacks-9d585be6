@@ -188,7 +188,7 @@ export function useOrderTracking() {
               drgreen_order_id: liveId,
               status: liveStatus,
               payment_status: livePayment,
-              total_amount: live.totalAmount || live.total_amount || 0,
+              total_amount: live.totalAmount || live.totalPrice || live.total_amount || 0,
               items: JSON.parse(JSON.stringify(live.items || [])),
               client_id: clientId,
               synced_at: new Date().toISOString(),

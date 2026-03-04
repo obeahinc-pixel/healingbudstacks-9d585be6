@@ -22,7 +22,7 @@ interface StrainQuickViewProps {
 
 export function StrainQuickView({ product, onClose }: StrainQuickViewProps) {
   const [quantity, setQuantity] = useState(1);
-  const { addToCart, isEligible, drGreenClient, countryCode, convertFromEUR } = useShop();
+  const { addToCart, isEligible, drGreenClient, countryCode } = useShop();
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -187,7 +187,7 @@ export function StrainQuickView({ product, onClose }: StrainQuickViewProps) {
                 <div className="flex items-baseline gap-2 mb-4">
                   <PriceBreakdownTooltip>
                     <span className="text-3xl font-bold text-primary">
-                      {formatPrice(convertFromEUR(product.retailPrice), countryCode)}
+                      {formatPrice(product.retailPrice, countryCode)}
                     </span>
                   </PriceBreakdownTooltip>
                   <span className="text-sm text-muted-foreground">per gram</span>
@@ -300,7 +300,7 @@ export function StrainQuickView({ product, onClose }: StrainQuickViewProps) {
                   <div className="flex items-center justify-between text-lg">
                     <span className="text-muted-foreground">Total:</span>
                     <span className="text-2xl font-bold text-primary">
-                      {formatPrice(convertFromEUR(product.retailPrice * quantity), countryCode)}
+                      {formatPrice(product.retailPrice * quantity, countryCode)}
                     </span>
                   </div>
 

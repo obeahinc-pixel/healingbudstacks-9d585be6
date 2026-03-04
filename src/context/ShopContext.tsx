@@ -9,7 +9,7 @@ interface CartItem {
   strain_id: string;
   strain_name: string;
   quantity: number;
-  unit_price: number; // Always in EUR from Dr Green API
+  unit_price: number; // Fixed/local price from Dr Green API (already in correct currency)
 }
 
 interface DrGreenClient {
@@ -134,7 +134,8 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     return convertPrice(amount, 'EUR', targetCountry); // Actually converts from EUR now
   }, [convertPrice, countryCode]);
 
-  const cartTotalConverted = convertFromEUR(cartTotal);
+  // Prices are now fixed/local from the API — no conversion needed
+  const cartTotalConverted = cartTotal;
   
   const isEligible = drGreenClient?.is_kyc_verified === true && drGreenClient?.admin_approval === 'VERIFIED';
 

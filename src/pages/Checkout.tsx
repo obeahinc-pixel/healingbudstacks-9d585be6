@@ -93,7 +93,7 @@ async function sendOrderConfirmationEmail(payload: {
 
 const Checkout = () => {
 
-  const { cart, cartTotal, cartTotalConverted, clearCart, drGreenClient, countryCode, convertFromEUR } = useShop();
+  const { cart, cartTotal, cartTotalConverted, clearCart, drGreenClient, countryCode } = useShop();
   const navigate = useNavigate();
   const { t } = useTranslation('shop');
   const { toast } = useToast();
@@ -569,11 +569,11 @@ const clientCountryCode = drGreenClient.country_code || countryCode || 'ZA';
                               {item.strain_name}
                             </p>
                             <p className="text-sm text-muted-foreground">
-                              Qty: {item.quantity} × {formatPrice(convertFromEUR(item.unit_price), countryCode)}
+                              Qty: {item.quantity} × {formatPrice(item.unit_price, countryCode)}
                             </p>
                           </div>
                           <p className="font-semibold text-foreground">
-                            {formatPrice(convertFromEUR(item.quantity * item.unit_price), countryCode)}
+                            {formatPrice(item.quantity * item.unit_price, countryCode)}
                           </p>
                         </div>
                       ))}

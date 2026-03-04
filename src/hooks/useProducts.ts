@@ -179,11 +179,15 @@ export function useProducts(countryCode: string = 'PT') {
           const isAvailable = location?.isAvailable ?? strain.availability ?? strain.isAvailable ?? true;
           const stock = location?.stockQuantity ?? strain.stock ?? strain.stockQuantity ?? 100;
 
+          // Priority: location price (fixed/local) first, then top-level
           const retailPrice = 
+            parseFloat(location?.retailPrice) ||
+            parseFloat(location?.pricePerGram) ||
+            parseFloat(location?.pricePerUnit) ||
             parseFloat(strain.retailPrice) || 
             parseFloat(strain.pricePerGram) || 
+            parseFloat(strain.pricePerUnit) || 
             parseFloat(strain.price) || 
-            parseFloat(location?.retailPrice) ||
             0;
 
           const thcContent = 

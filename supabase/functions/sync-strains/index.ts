@@ -226,12 +226,15 @@ serve(async (req) => {
         const isAvailable = location?.isAvailable ?? strain.isAvailable ?? strain.availability ?? true;
         const stock = location?.stockQuantity ?? strain.stock ?? strain.stockQuantity ?? 100;
         
-        // Get price - try multiple possible fields
+        // Priority: location price (fixed/local) first, then top-level
         const retailPrice = 
+          parseFloat(location?.retailPrice) ||
+          parseFloat(location?.pricePerGram) ||
+          parseFloat(location?.pricePerUnit) ||
           parseFloat(strain.retailPrice) || 
           parseFloat(strain.pricePerGram) || 
+          parseFloat(strain.pricePerUnit) || 
           parseFloat(strain.price) || 
-          parseFloat(location?.retailPrice) ||
           0;
         
         // Get THC/CBD - try multiple field names

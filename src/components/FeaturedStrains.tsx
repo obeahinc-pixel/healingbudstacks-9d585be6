@@ -9,7 +9,7 @@ import { PriceBreakdownTooltip } from '@/components/shop/PriceBreakdownTooltip';
 
 export function FeaturedStrains() {
   const navigate = useNavigate();
-  const { countryCode, convertFromEUR, addToCart, isEligible } = useShop();
+  const { countryCode, addToCart, isEligible } = useShop();
   const { products, isLoading } = useProducts(countryCode);
 
   // Show max 4 available strains
@@ -114,7 +114,7 @@ export function FeaturedStrains() {
                       </h3>
                       <PriceBreakdownTooltip>
                         <span className="text-base md:text-lg font-bold text-primary shrink-0">
-                          {formatPrice(convertFromEUR(product.retailPrice), countryCode)}
+                          {formatPrice(product.retailPrice, countryCode)}
                         </span>
                       </PriceBreakdownTooltip>
                     </div>
