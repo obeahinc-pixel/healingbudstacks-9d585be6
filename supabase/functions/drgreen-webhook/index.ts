@@ -194,8 +194,8 @@ function getOrderStatusEmail(orderId: string, status: string, event: string, con
   const template = statusMessages[event] || statusMessages['order.status_updated'];
 
   const supabaseUrl = Deno.env.get("SUPABASE_URL") || '';
-  const whiteLogoUrl = `${supabaseUrl}/storage/v1/object/public/email-assets/hb-logo-white.png`;
-  const tealLogoUrl = `${supabaseUrl}/storage/v1/object/public/email-assets/hb-logo-teal.png`;
+  const whiteLogoUrl = `${supabaseUrl}/storage/v1/object/public/email-assets/hb-logo-white-full.png`;
+  const tealLogoUrl = `${supabaseUrl}/storage/v1/object/public/email-assets/hb-logo-teal-full.png`;
 
   return {
     subject: template.subject,
@@ -768,7 +768,8 @@ serve(async (req) => {
         if (RESEND_API_KEY) {
           const currencySymbol = confirmBody.currency === 'ZAR' ? 'R' : confirmBody.currency === 'GBP' ? '£' : '€';
           const firstName = userName.split(' ')[0] || userName;
-          const logoUrl = `${supabaseUrl}/storage/v1/object/public/email-assets/hb-logo-white.png`;
+          const logoUrl = `${supabaseUrl}/storage/v1/object/public/email-assets/hb-logo-white-full.png`;
+          const tealLogoUrlConfirm = `${supabaseUrl}/storage/v1/object/public/email-assets/hb-logo-teal-full.png`;
           const itemRows = confirmBody.items.map((item: any) => `
             <tr>
               <td style="padding:12px 0;border-bottom:1px solid #e5e7eb;color:#18181b;font-size:14px;">${item.strain_name}</td>
@@ -818,7 +819,7 @@ serve(async (req) => {
     </p>
   </div>
    <div style="background:#f4f4f5;padding:20px;text-align:center;">
-     <img src="${supabaseUrl}/storage/v1/object/public/email-assets/hb-logo-teal.png" alt="${confirmConfig.brandName}" width="120" style="max-width:120px;height:auto;margin-bottom:8px;" />
+     <img src="${tealLogoUrlConfirm}" alt="${confirmConfig.brandName}" width="140" style="max-width:140px;height:auto;margin-bottom:8px;" />
      <p style="margin:0;color:#71717a;font-size:12px;">${confirmConfig.brandName}</p>
      <p style="margin:8px 0 0;color:#a1a1aa;font-size:11px;">Transactional email regarding your order. © ${new Date().getFullYear()}</p>
    </div>
