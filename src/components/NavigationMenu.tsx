@@ -43,26 +43,20 @@ const NavigationMenu = ({ scrolled, isDark = true }: NavigationMenuProps) => {
               "text-sm flex items-center gap-1.5 whitespace-nowrap flex-shrink-0",
               "group",
               active
-                ? "text-white bg-white/15 border-b-2 border-[#EAB308]"
+                ? "text-white bg-white/10"
                 : "text-white/90 hover:text-white hover:bg-white/10"
             )}
           >
             <Icon className={cn(
               "w-4 h-4 transition-colors duration-300",
-              active ? "text-[#EAB308]" : "text-white/60 group-hover:text-[#EAB308]"
+              active ? "text-white" : "text-white/60 group-hover:text-[#EAB308]"
             )} />
             {item.label}
             
-            {/* Active indicator dot */}
+            {/* Active underline — clean white */}
             {active && (
-              <span className="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#EAB308]" />
+              <span className="absolute -bottom-0.5 left-1/2 -translate-x-1/2 w-3/4 h-0.5 rounded-full bg-white" />
             )}
-            
-            {/* Hover underline */}
-            <span className={cn(
-              "absolute bottom-0 left-1/2 -translate-x-1/2 h-0.5 transition-all duration-300 bg-[#EAB308]",
-              active ? "w-full opacity-100" : "w-0 opacity-0 group-hover:w-3/4 group-hover:opacity-60"
-            )} />
           </Link>
         );
       })}

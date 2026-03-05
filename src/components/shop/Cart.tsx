@@ -19,7 +19,7 @@ import { useUserRole } from '@/hooks/useUserRole';
 export function Cart() {
   const {
     cart,
-    cartTotalConverted,
+    cartTotal,
     isCartOpen,
     setIsCartOpen,
     removeFromCart,
@@ -170,7 +170,7 @@ export function Cart() {
             <div className="flex items-center justify-between w-full">
               <span className="text-muted-foreground">Subtotal</span>
               <span className="text-xl font-bold text-foreground">
-                {formatPrice(cartTotalConverted, countryCode)}
+                {formatPrice(cartTotal, countryCode)}
               </span>
             </div>
 

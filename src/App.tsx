@@ -24,6 +24,7 @@ import { WalletProvider } from "@/providers/WalletProvider";
 import { WalletContextProvider } from "@/context/WalletContext";
 import { TenantProvider } from "@/context/TenantContext";
 import { ApiEnvironmentProvider } from "@/context/ApiEnvironmentContext";
+import { TruthProvider } from "@/context/TruthProvider";
 
 
 // Lazy load pages for better performance
@@ -145,6 +146,7 @@ const App = () => (
             <TooltipProvider>
               <WalletContextProvider>
                 <ApiEnvironmentProvider>
+                  <TruthProvider>
                   <ShopProvider>
                     <CursorFollower>
                       <Toaster />
@@ -162,6 +164,7 @@ const App = () => (
                       </BrowserRouter>
                     </CursorFollower>
                   </ShopProvider>
+                  </TruthProvider>
                 </ApiEnvironmentProvider>
               </WalletContextProvider>
             </TooltipProvider>
