@@ -19,6 +19,8 @@ import { useDrGreenApi } from '@/hooks/useDrGreenApi';
 import { useOrderTracking } from '@/hooks/useOrderTracking';
 import { formatPrice, getCurrencyForCountry } from '@/lib/currency';
 import { supabase } from '@/integrations/supabase/client';
+import { useTruth } from '@/context/TruthProvider';
+import { PriceTruth } from '@/lib/commerce';
 
 // Retry utility with exponential backoff - preserves real error messages
 async function retryOperation<T>(
@@ -76,6 +78,7 @@ const Checkout = () => {
   const navigate = useNavigate();
   const { t } = useTranslation('shop');
   const { toast } = useToast();
+  const { validateCartPrices } = useTruth();
   const { createPayment, getPayment, createOrder, getClientDetails } = useDrGreenApi();
   const { saveOrder } = useOrderTracking();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -91,6 +94,48 @@ const Checkout = () => {
   const [needsShippingAddress, setNeedsShippingAddress] = useState(false);
   const [addressMode, setAddressMode] = useState<'saved' | 'custom'>('saved');
   const [addressManuallySaved, setAddressManuallySaved] = useState(false);
+
+  // Price drift validation on mount — retailPrice is fixed/local so drift should never occur,
+  // but this is a safety net against stale drgreen_cart rows
+  useEffect(() => {
+    if (cart.length === 0) return;
+    const { hasDrift, blocked } = validateCartPrices(
+      cart.map(item => ({
+        strain_id: item.strain_id,
+        strain_name: item.strain_name,
+        quantity: item.quantity,
+        unit_price: item.unit_price,
+      }))
+    );
+
+    if (blocked.length > 0) {
+      toast({
+        title: 'Clinical Notice',
+        description: 'Price data unavailable for some products. Please refresh or contact support.',
+        variant: 'destructive',
+      });
+    } else if (hasDrift) {
+      // Auto-correct DB prices (fire-and-forget)
+      (async () => {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        for (const item of cart) {
+          const truthPrice = PriceTruth.getPrice(item.strain_id);
+          if (truthPrice > 0 && item.unit_price !== truthPrice) {
+            await supabase
+              .from('drgreen_cart')
+              .update({ unit_price: truthPrice })
+              .eq('user_id', user.id)
+              .eq('strain_id', item.strain_id);
+          }
+        }
+      })();
+      toast({
+        title: 'Pricing Update',
+        description: 'Cart prices have been adjusted to reflect current clinical pricing. Please review before proceeding.',
+      });
+    }
+  }, [cart.length]); // Only on mount / cart size change
 
   // Fetch client details to check for shipping address
   // Priority: 1) Manual session save, 2) Local DB, 3) Dr. Green API, 4) Prompt user
