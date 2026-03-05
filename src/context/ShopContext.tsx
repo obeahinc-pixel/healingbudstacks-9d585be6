@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
+import { PriceTruth } from '@/lib/commerce';
+import { PROXY_FN, ACTIONS } from '@/config/endpoints';
 
 interface CartItem {
   id: string;
@@ -28,7 +30,8 @@ interface ShopContextType {
   cart: CartItem[];
   cartCount: number;
   cartTotal: number;
-  cartTotalConverted: number; // Same as cartTotal — no conversion needed
+  /** @deprecated Use cartTotal — no conversion needed */
+  cartTotalConverted: number;
   isCartOpen: boolean;
   setIsCartOpen: (open: boolean) => void;
   addToCart: (item: Omit<CartItem, 'id'>) => Promise<void>;
@@ -127,8 +130,8 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
         });
       }
       
-      const { data, error } = await supabase.functions.invoke('drgreen-proxy', {
-        body: { action: 'get-client-by-auth-email' },
+      const { data, error } = await supabase.functions.invoke(PROXY_FN, {
+        body: { action: ACTIONS.getClientByAuthEmail },
       });
       
       if (error) {
@@ -219,9 +222,9 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     if (!localRecord.drgreen_client_id || localRecord.drgreen_client_id.startsWith('local-')) return;
 
     console.log('[ShopContext] Background: fetching live status from Dr. Green API...');
-    supabase.functions.invoke('drgreen-proxy', {
+    supabase.functions.invoke(PROXY_FN, {
       body: {
-        action: 'get-client',
+        action: ACTIONS.getClient,
         clientId: localRecord.drgreen_client_id,
       },
     }).then(({ data: apiResponse, error: apiError }) => {
@@ -401,6 +404,10 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
       return;
     }
 
+    // Override price with truth cache to prevent stale pricing
+    const truthPrice = PriceTruth.getPrice(item.strain_id);
+    const finalPrice = truthPrice > 0 ? truthPrice : item.unit_price;
+
     const { error } = await supabase
       .from('drgreen_cart')
       .upsert({
@@ -408,7 +415,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
         strain_id: item.strain_id,
         strain_name: item.strain_name,
         quantity: item.quantity,
-        unit_price: item.unit_price,
+        unit_price: finalPrice,
       }, {
         onConflict: 'user_id,strain_id',
       });

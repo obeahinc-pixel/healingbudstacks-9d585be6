@@ -18,6 +18,19 @@ jobs:
         with:
           node-version: 20
 
+      - name: Security audit — Zero-Retention check
+        run: |
+          echo "Checking for leaked secrets in frontend code..."
+          if grep -r "DRGREEN_API_KEY\|DRGREEN_PRIVATE_KEY" src/; then
+            echo "❌ FATAL: API secrets found in frontend code!"
+            exit 1
+          fi
+          if grep -r "api\.drgreennft\.com" src/; then
+            echo "❌ FATAL: Direct API URLs found in frontend code!"
+            exit 1
+          fi
+          echo "✅ Zero-Retention audit passed"
+
       - name: Install and build
         run: |
           npm install

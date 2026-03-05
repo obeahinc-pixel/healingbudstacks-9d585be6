@@ -72,7 +72,7 @@ async function retryOperation<T>(
 
 const Checkout = () => {
 
-  const { cart, cartTotal, cartTotalConverted, clearCart, drGreenClient, countryCode } = useShop();
+  const { cart, cartTotal, clearCart, drGreenClient, countryCode } = useShop();
   const navigate = useNavigate();
   const { t } = useTranslation('shop');
   const { toast } = useToast();
@@ -538,7 +538,7 @@ const clientCountryCode = drGreenClient.country_code || countryCode || 'ZA';
 
                       <div className="flex items-center justify-between text-lg font-bold">
                         <span>Total</span>
-                        <span className="text-primary">{formatPrice(cartTotalConverted, countryCode)}</span>
+                        <span className="text-primary">{formatPrice(cartTotal, countryCode)}</span>
                       </div>
                     </CardContent>
                   </Card>
@@ -695,7 +695,7 @@ const clientCountryCode = drGreenClient.country_code || countryCode || 'ZA';
                             ) : (
                               <>
                                 <CreditCard className="mr-2 h-4 w-4" />
-                                Place Order - {formatPrice(cartTotalConverted, countryCode)}
+                                Place Order - {formatPrice(cartTotal, countryCode)}
                               </>
                             )}
                           </Button>
