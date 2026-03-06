@@ -398,8 +398,50 @@ export function useAdminOrderSync() {
 
       if (error) throw error;
 
-      // Dispatch email is handled by the webhook when Dr. Green pushes order.shipped
-      // No manual email trigger needed here — avoids double-sending
+      // Auto-trigger dispatch email when status changes to SHIPPED
+      if (status === "SHIPPED") {
+        try {
+          const { data: order } = await supabase
+            .from("drgreen_orders")
+            .select("*")
+            .eq("id", orderId)
+            .maybeSingle();
+
+          if (order && order.customer_email) {
+            const items = (order.items as unknown as OrderItem[]) || [];
+            const shippingAddr = order.shipping_address as unknown as ShippingAddress | null;
+
+            await supabase.functions.invoke("send-dispatch-email", {
+              body: {
+                email: order.customer_email,
+                customerName: order.customer_name || "Customer",
+                orderId: order.drgreen_order_id || orderId,
+                items: items.map((item) => ({
+                  strain_name: item.strain_name || item.strainName || "Product",
+                  quantity: item.quantity,
+                  unit_price: item.unit_price || item.unitPrice || 0,
+                })),
+                totalAmount: order.total_amount || 0,
+                currency: order.currency || "EUR",
+                shippingAddress: shippingAddr || {
+                  address1: "Address on file",
+                  city: "—",
+                  postalCode: "—",
+                  country: "—",
+                },
+                region: order.country_code || undefined,
+                clientId: order.client_id || undefined,
+              },
+            });
+            console.log("[AdminOrderSync] Dispatch email sent for order:", orderId);
+          } else {
+            console.warn("[AdminOrderSync] No customer email for dispatch notification, order:", orderId);
+          }
+        } catch (emailErr) {
+          // Non-blocking: log but don't fail the status update
+          console.error("[AdminOrderSync] Failed to send dispatch email:", emailErr);
+        }
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["admin-orders"] });

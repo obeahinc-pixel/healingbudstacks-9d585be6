@@ -202,7 +202,7 @@ export function WalletConnectionModal({ isOpen, onClose }: WalletConnectionModal
                     onClick={() => {
                       if (address) {
                         window.open(
-                          `https://etherscan.io/address/${address}`,
+                          `https://polygonscan.com/address/${address}`,
                           '_blank'
                         );
                       }

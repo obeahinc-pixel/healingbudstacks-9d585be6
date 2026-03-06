@@ -659,155 +659,23 @@ The `create-order` proxy action performs a 3-step atomic flow:
 
 ---
 
-## 11. Strain/Product Endpoints — Fixed Retail Price Model
+## 11. Strain/Product Endpoints
 
-### Pricing Architecture (Sovereign Truth)
-
-The Dr. Green API uses a **fixed retail price model**. Every strain has a single, non-negotiable `retailPrice` per market (countryCode). There are no discounts, variable prices, or dynamic pricing fields.
-
-| Rule | Detail |
-|------|--------|
-| Price field | `retailPrice` — the sole authoritative price |
-| Currency | Pre-calculated in local currency (ZAR, EUR, GBP, THB) based on `countryCode` |
-| Discount fields | `discountRate`, `variablePrice`, `dynamicPrice` are **never present** |
-| Price type | Numeric, must be ≥ 0 |
-| Same strain, different price | The same strain can have different `retailPrice` values per country |
-| Client-side conversion | **Forbidden** — no exchange rates, no currency math |
-
-### GET /strains — List Strains by Country Code
+### GET /strains — List Strains (Products)
 
 **Proxy Action:** `get-strains` / `get-all-strains` / `get-strains-legacy`  
-**Auth:** Country-gated — open countries (ZAF, THA) bypass auth; restricted (GBR, PRT) require auth  
-**Signing:** HMAC-SHA256 of the query string (e.g., `countryCode=ZAF&orderBy=desc&take=100&page=1`)
+**Auth:** Country-gated — open countries (ZAF, THA) bypass auth; restricted (GBR, PRT) require auth
 
-| Parameter | Type | Required | Description |
-|-----------|------|----------|-------------|
-| `countryCode` | string | Yes | ISO alpha-3 (GBR, PRT, ZAF, THA) |
-| `orderBy` | string | No | Sort order (`desc` default) |
-| `take` | number | No | Items per page (max 100) |
-| `page` | number | No | Page number |
-
-#### Response Shape
-
-```json
-{
-  "strains": [
-    {
-      "id": "strain-uuid",
-      "name": "Blockberry",
-      "retailPrice": 150.00,
-      "description": "...",
-      "thc": 22.5,
-      "cbd": 0.1,
-      "category": "Hybrid",
-      "effects": ["relaxed", "happy"],
-      "flavour": ["berry", "earthy"],
-      "strainLocations": [
-        {
-          "isAvailable": true,
-          "stockQuantity": 50,
-          "countryCode": "ZAF"
-        }
-      ]
-    }
-  ]
-}
-```
-
-**Key:** `retailPrice` at root level is the **fixed local currency price** for the requested `countryCode`. No further processing required.
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `countryCode` | string | ISO alpha-3 country code |
+| `orderBy` | string | Sort order |
+| `take` | number | Items per page |
+| `page` | number | Page number |
 
 ### GET /strains/:strainId — Get Strain Details
 
-**Proxy Action:** `get-strain`  
-**Signing:** HMAC-SHA256 of the query string (empty string `""` for no query params)
-
-Returns a single strain object with the same `retailPrice` field. The price returned here **must match** the price from the list endpoint for the same `countryCode`.
-
-| Validation Rule | Detail |
-|-----------------|--------|
-| `retailPrice` must be numeric | Reject non-numeric values |
-| `retailPrice` must be ≥ 0 | Zero means "price unavailable" — block transaction |
-| No discount/variable fields | If present, ignore them entirely |
-| Price consistency | Detail price = List price for same strain + country |
-
----
-
-## 11a. Cart Pricing Flow
-
-### Local Cart (Supabase `drgreen_cart` table)
-
-The shop uses a **local cart** stored in Supabase, not the Dr. Green API cart. This allows offline-first UX and instant UI updates.
-
-| Field | Source | Purpose |
-|-------|--------|---------|
-| `strain_id` | Dr. Green API strain ID | Links to product |
-| `strain_name` | Dr. Green API strain name | Display |
-| `quantity` | User input | Grams ordered |
-| `unit_price` | `PriceTruth.getPrice()` → `retailPrice` | Price at time of add |
-
-### Price Truth Enforcement
-
-```
-User clicks "Add to Cart"
-    ↓
-ShopContext.addToCart() fires
-    ↓
-PriceTruth.getPrice(strain_id) checks in-memory cache
-    ↓
-If truth price > 0 → use truth price (overrides any stale unit_price)
-If truth price = 0 → fall back to item.unit_price (from product card)
-    ↓
-Upsert to drgreen_cart with final unit_price
-```
-
-### Cart Total Calculation
-
-```typescript
-cartTotal = Σ(item.quantity × item.unit_price) for all items in cart
-```
-
-- No currency conversion
-- No tax calculation (handled by Dr. Green on order creation)
-- No discount application
-- `unit_price` is always in local currency from the API
-
-### Checkout Price Drift Validation
-
-When Checkout mounts:
-
-```
-1. validateCartPrices() compares each cart item's unit_price against PriceTruth cache
-2. If ANY item's price differs (drift detected):
-   a. Auto-correct drgreen_cart rows in Supabase
-   b. Show clinical toast: "Pricing Update: Cart prices have been adjusted..."
-   c. Refresh cart state
-3. If ANY item has truth price = 0 (blocked):
-   a. Show warning: "Clinical Notice: Price data unavailable..."
-   b. Blocked items cannot proceed to order
-4. If no drift → proceed normally (expected path for fixed pricing)
-```
-
-### Dr. Green API Cart (Server-Side)
-
-The Dr. Green API has its own cart system at `/dapp/carts`. During checkout, the atomic order creation flow syncs items to the API cart before creating the order:
-
-| Step | Endpoint | Purpose |
-|------|----------|---------|
-| 1 | `PATCH /dapp/clients/:id` | Update shipping address |
-| 2 | `POST /dapp/carts` | Sync local cart items to API cart |
-| 3 | `POST /dapp/orders` | Create order from API cart |
-
-**Price at order creation:** The Dr. Green API uses the **current `retailPrice`** for the client's `countryCode` at the moment the order is created. Post-creation price changes do **not** affect existing orders.
-
-### Order Pricing Summary
-
-```
-Cart → Local Fixed Price (retailPrice from API)
-  → Synced to API Cart (quantity only — API uses its own retailPrice)
-  → Order Created (prices locked at creation time)
-  → Total = Σ(retailPrice × quantity)
-  → Existing orders unaffected by future price changes
-```
+**Proxy Action:** `get-strain`
 
 ---
 

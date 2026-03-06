@@ -215,14 +215,12 @@ export function useOrderTracking() {
     }
   }, [drGreenClient?.drgreen_client_id, getLiveOrders, fetchLocalOrders, toast]);
 
-  // Combined fetch: local first, then live sync only if user has a real Dr. Green client
+  // Combined fetch: local first, then live sync
   const fetchOrders = useCallback(async () => {
     await fetchLocalOrders();
-    const clientId = drGreenClient?.drgreen_client_id;
-    if (clientId && !clientId.startsWith('local-')) {
-      syncFromDrGreen();
-    }
-  }, [fetchLocalOrders, syncFromDrGreen, drGreenClient?.drgreen_client_id]);
+    // Fire live sync in background (non-blocking for initial UI)
+    syncFromDrGreen();
+  }, [fetchLocalOrders, syncFromDrGreen]);
 
   // Manual refresh (returns promise so UI can await it)
   const refreshOrders = useCallback(async () => {

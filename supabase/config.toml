@@ -1,5 +1,7 @@
 project_id = "ljgdonnytlevzvzqizke"
 
+[functions.send-dispatch-email]
+verify_jwt = false
 
 [functions.fetch-wire-articles]
 verify_jwt = false
@@ -16,7 +18,11 @@ verify_jwt = false
 [functions.drgreen-webhook]
 verify_jwt = false
 
+[functions.send-order-confirmation]
+verify_jwt = false
 
+[functions.send-onboarding-email]
+verify_jwt = false
 
 [functions.send-client-email]
 verify_jwt = false
@@ -24,6 +30,8 @@ verify_jwt = false
 [functions.send-contact-email]
 verify_jwt = false
 
+[functions.exchange-rates]
+verify_jwt = false
 
 [functions.wallet-auth]
 verify_jwt = false
@@ -56,7 +64,4 @@ verify_jwt = false
 verify_jwt = false
 
 [functions.upload-jar-template]
-verify_jwt = false
-
-[functions.sync-drgreen-data]
 verify_jwt = false

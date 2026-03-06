@@ -153,7 +153,7 @@ export type Database = {
           kyc_link: string | null
           shipping_address: Json | null
           updated_at: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           admin_approval?: string | null
@@ -167,7 +167,7 @@ export type Database = {
           kyc_link?: string | null
           shipping_address?: Json | null
           updated_at?: string
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           admin_approval?: string | null
@@ -181,7 +181,7 @@ export type Database = {
           kyc_link?: string | null
           shipping_address?: Json | null
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }
@@ -204,7 +204,7 @@ export type Database = {
           synced_at: string | null
           total_amount: number
           updated_at: string
-          user_id: string | null
+          user_id: string
         }
         Insert: {
           client_id?: string | null
@@ -224,7 +224,7 @@ export type Database = {
           synced_at?: string | null
           total_amount: number
           updated_at?: string
-          user_id?: string | null
+          user_id: string
         }
         Update: {
           client_id?: string | null
@@ -244,7 +244,7 @@ export type Database = {
           synced_at?: string | null
           total_amount?: number
           updated_at?: string
-          user_id?: string | null
+          user_id?: string
         }
         Relationships: []
       }

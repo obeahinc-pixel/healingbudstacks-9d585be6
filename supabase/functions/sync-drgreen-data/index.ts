@@ -264,10 +264,10 @@ serve(async (req) => {
           }).eq('id', existing.id);
           result.clients.upserted++;
           if (matchedUserId && existing.user_id !== matchedUserId) result.clients.linked++;
-        } else {
-          // Insert ALL clients — user_id is nullable, set to matched auth user or null
+        } else if (matchedUserId) {
+          // Only insert if we have a local auth user to link to
           await supabaseAdmin.from('drgreen_clients').insert({
-            user_id: matchedUserId || null,
+            user_id: matchedUserId,
             drgreen_client_id: client.id,
             is_kyc_verified: client.isKYCVerified || false,
             admin_approval: client.adminApproval || 'PENDING',
@@ -275,8 +275,9 @@ serve(async (req) => {
             shipping_address: client.shippings?.[0] || null,
           });
           result.clients.upserted++;
-          if (matchedUserId) result.clients.linked++;
+          result.clients.linked++;
         }
+        // Else: external client with no local auth account — skip insert (no user_id to use)
       } catch (err) {
         result.clients.errors.push(`${client.email}: ${err instanceof Error ? err.message : String(err)}`);
       }
@@ -308,10 +309,15 @@ serve(async (req) => {
       try {
         const orderId = order.id;
         const clientId = order.clientId || order.client?.id;
-        const userId = clientToUser[clientId] || null; // nullable — external clients have no local user
+        const userId = clientToUser[clientId];
+        if (!userId) {
+          // Log but skip — no local auth user linked to this Dr. Green client yet
+          result.orders.errors.push(`Order ${orderId}: skipped — client ${clientId} has no local user_id`);
+          continue;
+        }
 
         const { data: existing } = await supabaseAdmin
-          .from('drgreen_orders').select('id, status, payment_status, user_id')
+          .from('drgreen_orders').select('id, status, payment_status')
           .eq('drgreen_order_id', orderId).maybeSingle();
 
         const status = order.orderStatus || order.status || 'PENDING';
@@ -319,14 +325,13 @@ serve(async (req) => {
         const totalAmount = order.totalAmount || order.totalPrice || 0;
 
         if (existing) {
-          const updates: Record<string, any> = {
-            status, payment_status: paymentStatus, total_amount: totalAmount,
-            synced_at: new Date().toISOString(), sync_status: 'synced',
-            updated_at: new Date().toISOString(),
-          };
-          // Auto-link if we now have a userId and the row didn't before
-          if (userId && !existing.user_id) updates.user_id = userId;
-          await supabaseAdmin.from('drgreen_orders').update(updates).eq('id', existing.id);
+          if (existing.status !== status || existing.payment_status !== paymentStatus) {
+            await supabaseAdmin.from('drgreen_orders').update({
+              status, payment_status: paymentStatus, total_amount: totalAmount,
+              synced_at: new Date().toISOString(), sync_status: 'synced',
+              updated_at: new Date().toISOString(),
+            }).eq('id', existing.id);
+          }
           result.orders.upserted++;
         } else {
           await supabaseAdmin.from('drgreen_orders').insert({

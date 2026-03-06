@@ -1,7 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { PriceTruth } from '@/lib/commerce';
-import { PROXY_FN, ACTIONS } from '@/config/endpoints';
 
 // Import local strain images - new branded jar images
 import strainJar1 from '@/assets/strain-jar-1.png';
@@ -117,9 +115,9 @@ export function useProducts(countryCode: string = 'PT') {
       // First try to fetch from Dr Green API
       console.log(`Fetching strains from Dr Green API for country: ${alpha3Code}`);
       
-      const { data, error: fnError } = await supabase.functions.invoke(PROXY_FN, {
+      const { data, error: fnError } = await supabase.functions.invoke('drgreen-proxy', {
         body: {
-          action: ACTIONS.getStrains,
+          action: 'get-strains-legacy',
           countryCode: alpha3Code,
           orderBy: 'desc',
           take: 100,
@@ -181,8 +179,13 @@ export function useProducts(countryCode: string = 'PT') {
           const isAvailable = location?.isAvailable ?? strain.availability ?? strain.isAvailable ?? true;
           const stock = location?.stockQuantity ?? strain.stock ?? strain.stockQuantity ?? 100;
 
-          // Sovereign Truth: retailPrice is the sole authoritative field
-          const retailPrice = parseFloat(strain.retailPrice) || 0;
+          // strainLocations contains availability/stock only — prices are top-level
+          const retailPrice = 
+            parseFloat(strain.retailPrice) || 
+            parseFloat(strain.pricePerGram) || 
+            parseFloat(strain.pricePerUnit) || 
+            parseFloat(strain.price) || 
+            0;
 
           const thcContent = 
             parseFloat(strain.thc) || 
@@ -211,9 +214,6 @@ export function useProducts(countryCode: string = 'PT') {
             dataSource: 'api' as DataSource,
           };
         });
-        
-        // Push to PriceTruth cache for global access
-        PriceTruth.setPrices(transformedProducts);
         
         setProducts(transformedProducts);
         setDataSource('api');
