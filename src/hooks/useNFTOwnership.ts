@@ -117,7 +117,7 @@ export function useNFTOwnership({
 
 /**
  * Hook to check Dr. Green Digital Key ownership specifically
- * Uses the configured contract address and Polygon chain
+ * Uses the configured contract address on Ethereum Mainnet
  */
 export function useDrGreenKeyOwnership() {
   return useNFTOwnership({
