@@ -497,7 +497,6 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
         cart,
         cartCount,
         cartTotal,
-        cartTotalConverted,
         isCartOpen,
         setIsCartOpen,
         addToCart,
