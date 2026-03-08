@@ -56,7 +56,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`[send-onboarding-email] Sending to ${email}`);
 
-    const siteUrl = Deno.env.get("SITE_URL") || "https://healingbuds.com";
+    const siteUrl = Deno.env.get("SITE_URL") || "https://healingbuds.co.za";
     const registrationUrl = `${siteUrl}/shop/register`;
     const logoUrl = `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/email-assets/hb-logo-teal.png`;
 
@@ -138,7 +138,7 @@ const handler = async (req: Request): Promise<Response> => {
             <td style="background-color: #f9fafb; padding: 30px 40px; border-radius: 0 0 12px 12px; border-top: 1px solid #e5e7eb;">
               <p style="color: #6b7280; font-size: 12px; margin: 0 0 10px 0; text-align: center;">
                 Need help? Contact our support team at<br>
-                <a href="mailto:support@healingbuds.com" style="color: #0d5c4d;">support@healingbuds.com</a>
+                <a href="mailto:support@healingbuds.co.za" style="color: #0d5c4d;">support@healingbuds.co.za</a>
               </p>
               <p style="color: #9ca3af; font-size: 11px; margin: 0; text-align: center;">
                 © ${new Date().getFullYear()} Healing Buds. All rights reserved.<br>
