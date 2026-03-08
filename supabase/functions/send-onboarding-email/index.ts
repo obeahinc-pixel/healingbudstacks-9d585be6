@@ -56,7 +56,7 @@ const handler = async (req: Request): Promise<Response> => {
 
     console.log(`[send-onboarding-email] Sending to ${email}`);
 
-    const siteUrl = Deno.env.get("SITE_URL") || "https://healingbuds.com";
+    const siteUrl = Deno.env.get("SITE_URL") || "https://healingbuds.co.za";
     const registrationUrl = `${siteUrl}/shop/register`;
     const logoUrl = `${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/email-assets/hb-logo-teal.png`;
 
