@@ -108,7 +108,7 @@ const defaultContent: RegionLegalContent = {
   ],
   dataOfficer: {
     title: "Privacy Contact",
-    content: "For privacy enquiries, contact: privacy@healingbuds.com",
+    content: "For privacy enquiries, contact: privacy@healingbuds.co.za",
   },
   additionalSections: [],
 };
