@@ -105,7 +105,7 @@ const ENDPOINTS: EndpointConfig[] = [
     defaultBody: {
       firstName: "Test",
       lastName: "User",
-      email: "test@healingbuds.com",
+      email: "test@healingbuds.co.za",
       phoneCode: "+351",
       phoneCountryCode: "PT",
       contactNumber: "912345678",
