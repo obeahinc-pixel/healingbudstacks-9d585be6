@@ -49,8 +49,14 @@
   ExpiresByType font/woff "access plus 1 year"
 </IfModule>
 
-# Force HTTPS (uncomment if SSL is configured)
-# <IfModule mod_rewrite.c>
-#   RewriteCond %{HTTPS} off
-#   RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-# </IfModule>
+# Force HTTPS
+<IfModule mod_rewrite.c>
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+</IfModule>
+
+# Force canonical host (no www)
+<IfModule mod_rewrite.c>
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
+</IfModule>
