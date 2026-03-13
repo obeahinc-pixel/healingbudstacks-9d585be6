@@ -1,69 +1,65 @@
 
-# Plan: Seamless Single-Flow Customer Signup
+I checked the live database directly. Here is what is actually happening and the exact fix plan.
 
-## Problem
-The current signup experience is fragmented and feels "buggy":
-1. User signs up at `/auth` -- sees "account created, check your email"
-2. User confirms email, comes BACK to `/auth`, logs in
-3. Gets redirected to `/shop/register` which shows a separate "Welcome" banner + registration form
-4. On the shop page (`/shop`), the `EligibilityGate` shows a "Complete Registration" button that links back to `/shop/register` -- this looks like a broken loop
+1) What I verified in the database
+- Authentication accounts (`auth.users`): 11 total users.
+- All 11 are email-confirmed.
+- All 11 have password hashes (passwords are stored; plaintext is never readable by design).
+- Client records (`drgreen_clients`): 13 total.
+  - 6 linked to a real user ID
+  - 7 not linked (`user_id` is null)
+- Orders (`drgreen_orders`): 5 total.
+  - 1 linked to a real user ID
+  - 4 unlinked
 
-The user has to navigate through 3 different pages and click "Complete Registration" to even start the medical form. It should feel like one continuous onboarding journey.
+2) Why customers are failing login / “not persistent”
+- Main issue: many “customers” exist only as client records, not as authentication users.
+  - If someone is in `drgreen_clients` but not in `auth.users`, they cannot log in (no login account exists yet).
+- Persistence perception issue:
+  - Users who do have auth accounts but no linked `drgreen_clients` row are redirected like a new user every time (looks like data was “lost”).
+- Additional technical contributor:
+  - cPanel `.htaccess` does not force HTTPS/canonical host, which can split sessions across host variants and feel non-persistent.
+- Code bug found:
+  - `ClientOnboarding` redirects existing users to `/patient-dashboard` (route does not exist in router), which can break expected post-login flow.
 
-## Solution: Merge Signup + Registration Into One Seamless Flow
+3) Implementation plan (no changes yet in this message)
+Phase A — Account/data repair (highest priority)
+- Build a one-time backend repair flow to:
+  1) Find client records with emails but no auth account.
+  2) Create auth accounts for those emails.
+  3) Immediately send password setup/reset links so customers choose their own password.
+  4) Link `drgreen_clients.user_id` to the created auth user IDs.
+- Backfill linking for any existing auth user where email matches a null `drgreen_clients.user_id`.
 
-### Change 1: Auto-redirect after login to registration inline
-**File: `src/pages/Auth.tsx`** (lines 86-109)
+Phase B — Stop future breakage
+- Fix admin import/sync paths so they never create fake/random user IDs.
+  - If user unknown: keep `user_id = null` (claimable later), never random UUID.
+- Ensure onboarding/login flow always links by authenticated email when possible.
 
-After a new user logs in (no `drGreenClient`), instead of redirecting to `/shop/register` which loads a whole new page with its own header/banner, redirect directly and immediately. The redirect is already working, but the target page (`ShopRegister`) feels disconnected.
+Phase C — Session persistence hardening
+- Update cPanel rewrite rules to force HTTPS + single canonical host.
+- Keep SPA rewrites intact.
 
-**Action**: No change needed here -- the redirect logic is correct.
+Phase D — UX/router correctness
+- Fix invalid redirect `/patient-dashboard` → `/dashboard`.
 
-### Change 2: Remove the "Sign In to Continue" dead-end from ShopRegister
-**File: `src/pages/ShopRegister.tsx`** (lines 179-196)
+Phase E — Verification checklist
+- Test matrix:
+  1) Existing client without auth account → receives setup link → can log in.
+  2) Existing auth user with matching client email → auto-linked on next login.
+  3) New signup → login persists after refresh/close/reopen.
+  4) Host variants (`www` vs non-www, http vs https) preserve single session behavior.
 
-The unauthenticated state shows a static card with "Sign In to Continue" and a button. This is fine but the Loader2 icon (spinning) in the card is confusing -- it looks like something is loading when nothing is happening. Replace with a proper icon (e.g., a lock or user icon).
+4) Decision needed before I execute
+Choose provisioning behavior for missing auth accounts:
+- Option 1 (recommended): create account + send password setup/reset email.
+- Option 2: create account + set temporary password and email it.
+- Option 3: do not create missing accounts; only fix flow for future users.
 
-### Change 3: Streamline the ShopRegister welcome banner
-**File: `src/pages/ShopRegister.tsx`** (lines 164-178)
-
-The welcome banner adds vertical space before the form and separates the experience. Merge this messaging into the ClientOnboarding component's first step header so users see the form immediately without scrolling.
-
-**Action**: Remove the separate welcome banner div. Instead, add welcome text as a subtitle in the ClientOnboarding personal details card header.
-
-### Change 4: Make the EligibilityGate less alarming for new users
-**File: `src/components/shop/EligibilityGate.tsx`**
-
-Currently shows "No Medical Profile Found" with a scary shield icon and 4-step progress tracker before showing a "Start Registration" button. For brand-new users this is overwhelming and feels like an error.
-
-**Action**: Simplify the no-client state to a friendly, minimal prompt -- a single card with welcoming language and one clear CTA button. Remove the multi-step tracker from the EligibilityGate (it's already shown inside the registration form and on the status page).
-
-### Change 5: Pre-fill email from auth session in ClientOnboarding
-**File: `src/components/shop/ClientOnboarding.tsx`** (lines 369-379)
-
-Currently the email field starts empty, forcing the user to re-type their email (which they just used to sign up). Pre-fill it from the authenticated user's email.
-
-**Action**: On mount, fetch `supabase.auth.getUser()` and set the email + name defaults from the user metadata. Also make the email field read-only since it must match the auth email.
-
-### Change 6: Simplify the ClientOnboarding progress bar for mobile
-**File: `src/components/shop/ClientOnboarding.tsx`** (lines 937-977)
-
-The 6-step progress indicator with icons and labels is cluttered on mobile (labels hidden). Simplify to show step X of Y with a clean progress bar.
-
-**Action**: Show "Step X of Y" text above the progress bar. Keep the progress bar. Remove the individual step icons on mobile (they're already hidden via `hidden sm:block`).
-
-## Technical Summary
-
-| File | Change |
-|------|--------|
-| `src/pages/ShopRegister.tsx` | Remove separate welcome banner, fix unauthenticated state icon, tighten layout |
-| `src/components/shop/EligibilityGate.tsx` | Simplify no-client state to friendly single CTA card |
-| `src/components/shop/ClientOnboarding.tsx` | Pre-fill email/name from auth session, add welcome subtitle to step 1, add "Step X of Y" label |
-
-## What This Does NOT Change
-- The actual signup/login at `/auth` stays the same
-- The medical questionnaire steps and validation stay the same
-- The Dr. Green API integration stays the same
-- The completion step with "What happens next" stays the same
-- The DashboardStatus page stays the same
-- KYC is still not blocking -- it just sends the email after registration
+5) Technical details
+- Confirmed from DB:
+  - `auth.users`: 11, confirmed: 11, with password hash: 11.
+  - `drgreen_clients`: 13 total, 7 unlinked.
+  - `drgreen_orders`: 5 total, 4 unlinked.
+- There are no orphan linked client rows pointing to nonexistent auth IDs (good).
+- The biggest gap is “client exists” ≠ “auth account exists”.
