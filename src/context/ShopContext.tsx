@@ -385,16 +385,33 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     }
   }, [drGreenClient?.drgreen_client_id, fetchClient]);
 
+  // Bootstrap: wire auth listener FIRST, then hydrate from current session.
+  // This prevents the race where fetchClient runs before auth state is ready.
   useEffect(() => {
-    fetchCart();
-    fetchClient();
+    let isMounted = true;
+    let initialFetchDone = false;
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
+    // 1. Register the auth state listener immediately
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      // After the initial hydration fetch, react to auth changes
+      if (!initialFetchDone) return;
+      if (!isMounted) return;
       fetchCart();
       fetchClient();
     });
 
-    return () => subscription.unsubscribe();
+    // 2. One-shot bootstrap from current session (deferred to avoid deadlock)
+    setTimeout(() => {
+      if (!isMounted) return;
+      initialFetchDone = true;
+      fetchCart();
+      fetchClient();
+    }, 0);
+
+    return () => {
+      isMounted = false;
+      subscription.unsubscribe();
+    };
   }, [fetchCart, fetchClient]);
 
   // Live sync: poll for verification status updates every 60 seconds

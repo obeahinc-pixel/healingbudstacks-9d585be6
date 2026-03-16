@@ -120,10 +120,10 @@ export function AdminClientManager() {
         // Skip if already synced with same ID
         if (existingMap.has(client.id)) continue;
         
-        // Try to find matching auth user by email
-        // We need to query auth users - use a simple approach via supabase admin
-        // For now, upsert with a placeholder user_id if no match found
+        // Only sync status fields; never write a fake user_id
+        // The auto_link_drgreen_on_signup trigger handles user_id linkage
         const fullName = [client.firstName, client.lastName].filter(Boolean).join(' ');
+        const existingUserId = existingMap.get(client.id) ?? null;
         
         const { error: upsertErr } = await supabase
           .from('drgreen_clients')
@@ -134,7 +134,7 @@ export function AdminClientManager() {
             is_kyc_verified: client.isKYCVerified ?? false,
             admin_approval: client.adminApproval || 'PENDING',
             country_code: 'PT', // Default, updated when details fetched
-            user_id: existingMap.get(client.id) || crypto.randomUUID(), // Preserve existing user_id
+            user_id: existingUserId, // Preserve existing link or leave null for auto-linking
           }, {
             onConflict: 'drgreen_client_id',
             ignoreDuplicates: false,

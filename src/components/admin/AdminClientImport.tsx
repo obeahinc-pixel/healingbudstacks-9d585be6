@@ -146,11 +146,12 @@ export function AdminClientImport() {
         },
       });
 
-      // For clients without a local user account, we insert directly
+      // For clients without a local user account, insert as unclaimed (user_id = null)
+      // The auto_link_drgreen_on_signup trigger will link them when they sign up
       const { error: insertError } = await supabase
         .from('drgreen_clients')
         .insert({
-          user_id: crypto.randomUUID(), // Placeholder - will need manual linking
+          user_id: null, // Unclaimed - auto-linked when user signs up with matching email
           drgreen_client_id: clientId!,
           email: foundClient.email || null,
           full_name: fullName || null,

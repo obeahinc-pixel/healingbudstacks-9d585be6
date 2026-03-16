@@ -6,11 +6,17 @@
   RewriteEngine On
   RewriteBase /
 
-  # Don't rewrite files or directories
+  # 1. Force HTTPS first (prevents session split across http/https)
+  RewriteCond %{HTTPS} off
+  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  # 2. Force canonical host — no www (prevents session split across hosts)
+  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
+
+  # 3. SPA routing — don't rewrite files or directories
   RewriteCond %{REQUEST_FILENAME} !-f
   RewriteCond %{REQUEST_FILENAME} !-d
-
-  # Rewrite everything else to index.html for SPA routing
   RewriteRule ^ index.html [QSA,L]
 </IfModule>
 
@@ -47,16 +53,4 @@
   ExpiresByType application/javascript "access plus 1 month"
   ExpiresByType font/woff2 "access plus 1 year"
   ExpiresByType font/woff "access plus 1 year"
-</IfModule>
-
-# Force HTTPS
-<IfModule mod_rewrite.c>
-  RewriteCond %{HTTPS} off
-  RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
-</IfModule>
-
-# Force canonical host (no www)
-<IfModule mod_rewrite.c>
-  RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
-  RewriteRule ^(.*)$ https://%1/$1 [R=301,L]
 </IfModule>
