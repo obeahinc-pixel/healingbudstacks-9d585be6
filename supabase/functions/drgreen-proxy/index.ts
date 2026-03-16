@@ -91,6 +91,11 @@ const ADMIN_ACTIONS = [
   'admin-list-all-clients', // List all clients for debugging
   'admin-update-shipping-address', // Admin can update any client's address
   'admin-reregister-client', // Re-register a client with current API key pair
+  'get-clients-summary', // Client summary stats (PENDING/VERIFIED/REJECTED)
+  'get-sales', // Sales data with filtering
+  'get-sales-summary', // Sales summary by stage
+  'get-client-orders', // Orders for a specific client
+  'get-user-nfts', // User's owned NFTs
 ];
 
 // Actions that require ownership verification (user must own the resource)
