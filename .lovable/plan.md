@@ -1,22 +1,31 @@
 
 
-## Plan: Fix Password Reset Redirect + Add Password Visibility Toggle
+## Plan: Update `auto_assign_admin_role()` Trigger
 
-### Problem 1: Reset redirect URL
-Currently `getProductionPath('/auth')` uses `window.location.origin` which in the preview returns the Lovable preview URL, not `healingbuds.co.za`. The reset email link needs to always point to the production domain.
+### Current state
+- `healingbudsglobal@gmail.com` (user `1523a97a`) is the only admin in `user_roles` — confirmed.
+- The `auto_assign_admin_role()` function still references `scott@healingbuds.global` alongside `healingbudsglobal@gmail.com`.
 
-**Fix:** Hardcode the production redirect URL for password reset to `https://healingbuds.co.za/auth` in the `handleForgotPassword` function, instead of using the dynamic `getProductionPath`.
+### Change
+One database migration to replace the function body, removing `scott@healingbuds.global` from the hardcoded list:
 
-### Problem 2: No password visibility toggle
-All 4 password fields (login password, signup password, confirm password, new password, confirm new password) use `type="password"` with no toggle.
+```sql
+CREATE OR REPLACE FUNCTION public.auto_assign_admin_role()
+  RETURNS trigger
+  LANGUAGE plpgsql
+  SECURITY DEFINER
+  SET search_path TO 'public'
+AS $$
+BEGIN
+  IF NEW.email = 'healingbudsglobal@gmail.com' THEN
+    INSERT INTO public.user_roles (user_id, role)
+    VALUES (NEW.id, 'admin')
+    ON CONFLICT (user_id, role) DO NOTHING;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+```
 
-**Fix:** Add state variables for password visibility and eye/eye-off toggle buttons on all password inputs.
-
-### Changes (1 file)
-
-**`src/pages/Auth.tsx`**
-1. Import `Eye`, `EyeOff` from lucide-react
-2. Add visibility state: `showPassword`, `showConfirmPassword`, `showNewPassword`, `showConfirmNewPassword`
-3. Change `handleForgotPassword` redirect URL from `getProductionPath('/auth')` to `'https://healingbuds.co.za/auth'`
-4. Add toggle button (absolute positioned right side) on all 5 password inputs, switching between `type="password"` and `type="text"`
+No other files or tables are affected. The existing admin session for `healingbudsglobal@gmail.com` is untouched.
 
