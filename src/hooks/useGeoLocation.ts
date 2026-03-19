@@ -90,7 +90,7 @@ const locationConfigs: Record<string, LocationConfig> = {
     postalCodePlaceholder: '10001',
     postalCodePattern: '^\\d{5}(-\\d{4})?$',
     dateFormat: 'MM/dd/yyyy',
-    email: 'info@healingbuds.com',
+    email: 'info@healingbuds.co.za',
     phone: '+1 (555) 123-4567',
     address: '123 Fifth Avenue',
     city: 'New York, NY 10001, USA',

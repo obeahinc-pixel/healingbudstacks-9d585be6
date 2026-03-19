@@ -364,7 +364,7 @@ export function ClientOnboarding() {
         .maybeSingle();
 
       if (existingClient) {
-        navigate('/patient-dashboard');
+        navigate('/dashboard');
         return;
       }
     };
